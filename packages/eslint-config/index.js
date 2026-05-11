@@ -44,16 +44,44 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      // Hard ban: no env reads outside per-app config/env.ts (REBUILD_PLAN §11.5).
-      // Enforced by the local plugin below once authored; for now we surface
-      // a reminder via no-restricted-syntax.
+      // Two structural bans, enforced via no-restricted-syntax until the
+      // local `eslint-plugin-advicelink` lands:
+      //   1. No env reads outside per-app config/env.ts (REBUILD_PLAN §11.5).
+      //   2. No stringly-typed workflow-state comparisons outside
+      //      `@advicelink/workflow` (REBUILD_PLAN §5 + the workflow-machine
+      //      Cursor rule). The selector matches any string Literal whose
+      //      value is a known WORKFLOW_STATES name appearing inside a
+      //      BinaryExpression (`x === 'draftingSOA'`) OR an ArrayExpression
+      //      (`['arDue', 'arWizardActive'].includes(...)`). Keep this
+      //      regex in lockstep with `packages/workflow/src/states.ts`.
       'no-restricted-syntax': [
         'error',
         {
           selector: "MemberExpression[object.object.name='process'][object.property.name='env']",
           message: "Read env vars only from your app's `config/env.ts` (REBUILD_PLAN §11.5).",
         },
+        {
+          selector:
+            'BinaryExpression > Literal[value=/^(newLead|factFinding|factFindReady|handedOffToAdvice|factFindLocked|awaitingParaplanner|paraplannerClaimed|draftingSOA|reviewingSOA|amendingSOA|soaPresented|soaAccepted|implementing|implemented|servicing|arDue|arWizardActive|draftingROAEO|reviewingROAEO|draftingAR|reviewingAR|arPresented|lost|notProceeding|offboarded)$/]',
+          message:
+            "Don't compare workflow states as strings — use isInState/isInPhase/canTransition from @advicelink/workflow (REBUILD_PLAN §5).",
+        },
+        {
+          selector:
+            'ArrayExpression > Literal[value=/^(newLead|factFinding|factFindReady|handedOffToAdvice|factFindLocked|awaitingParaplanner|paraplannerClaimed|draftingSOA|reviewingSOA|amendingSOA|soaPresented|soaAccepted|implementing|implemented|servicing|arDue|arWizardActive|draftingROAEO|reviewingROAEO|draftingAR|reviewingAR|arPresented|lost|notProceeding|offboarded)$/]',
+          message:
+            "Don't list workflow states as string arrays — use isInPhase/transitionsAvailable from @advicelink/workflow (REBUILD_PLAN §5).",
+        },
       ],
+    },
+  },
+  // The workflow package itself is the single place allowed to refer to
+  // workflow-state names as raw strings (the canonical WORKFLOW_STATES
+  // tuple lives there).
+  {
+    files: ['packages/workflow/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   },
   // The documented exception to the env-read ban: env loaders themselves.

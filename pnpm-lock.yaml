@@ -806,6 +806,9 @@ importers:
 
   packages/workflow:
     dependencies:
+      '@advicelink/rbac':
+        specifier: workspace:*
+        version: link:../rbac
       xstate:
         specifier: ^5.19.1
         version: 5.31.1

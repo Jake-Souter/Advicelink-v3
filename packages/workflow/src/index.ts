@@ -1,53 +1,64 @@
 /**
- * Client workflow machine and helpers.
+ * `@advicelink/workflow` — the client lifecycle state machine.
  *
- * The actual XState v5 machine and the `isInPhase` / `canTransition` /
- * `isInState` helpers ship in Work Package 5. This file currently exposes the
- * macro phase + state name unions so other packages can refer to workflow
- * shapes without importing the machine itself.
+ * Both the API and the web app import from here:
+ *  - the web for chips, CTAs, and optimistic UX checks,
+ *  - the API for authoritative validation before a workflow_events
+ *    row is written and the `clients.workflow_state` column updated.
  *
- * See REBUILD_PLAN.md §5.
+ * **Stringly-typed status comparisons against `WorkflowState` values
+ * outside this package are forbidden.** The lint rule
+ * `no-stringly-typed-workflow-state` enforces this — use
+ * `isInState`, `isInPhase`, or `canTransition` instead.
+ *
+ * REBUILD_PLAN.md §5.
  */
 
-export type WorkflowPhase =
-  | 'capture'
-  | 'onboarding'
-  | 'drafting'
-  | 'presenting'
-  | 'implementing'
-  | 'servicing'
-  | 'closed';
+export {
+  WORKFLOW_PHASES,
+  WORKFLOW_STATES,
+  STATE_TO_PHASE,
+  isInState,
+  isInPhase,
+  isWorkflowPhase,
+  isWorkflowState,
+  phaseOf,
+  type WorkflowPhase,
+  type WorkflowState,
+  type WorkflowSubject,
+} from './states.js';
 
-export type WorkflowState =
-  // capture
-  | 'newLead'
-  | 'factFinding'
-  | 'factFindReady'
-  // onboarding
-  | 'handedOffToAdvice'
-  | 'factFindLocked'
-  // drafting
-  | 'awaitingParaplanner'
-  | 'paraplannerClaimed'
-  | 'draftingSOA'
-  | 'reviewingSOA'
-  | 'amendingSOA'
-  // presenting
-  | 'soaPresented'
-  | 'soaAccepted'
-  // implementing
-  | 'implementing'
-  | 'implemented'
-  // servicing
-  | 'servicing'
-  | 'arDue'
-  | 'arWizardActive'
-  | 'draftingROAEO'
-  | 'reviewingROAEO'
-  | 'draftingAR'
-  | 'reviewingAR'
-  | 'arPresented'
-  // closed
-  | 'lost'
-  | 'notProceeding'
-  | 'offboarded';
+export {
+  TRANSITIONS,
+  TRANSITIONS_BY_NAME,
+  TERMINAL_STATES,
+  getTransition,
+  isFromMatch,
+  type TransitionTrigger,
+  type WorkflowTransition,
+  type WorkflowTransitionName,
+} from './transitions.js';
+
+export {
+  canTransition,
+  transitionsAvailable,
+  type CanTransitionOptions,
+  type TransitionDecision,
+  type TransitionDenialReason,
+  type WorkflowActor,
+} from './canTransition.js';
+
+export {
+  shouldAutoFlagARDue,
+  shouldAutoReleaseParaplannerClaim,
+  DEFAULT_PARAPLANNER_RELEASE_AFTER_MS,
+  type AutoArDueSubject,
+  type AutoParaplannerReleaseOptions,
+  type AutoParaplannerReleaseSubject,
+} from './autoTransitions.js';
+
+export {
+  clientWorkflowMachine,
+  type ClientWorkflowContext,
+  type ClientWorkflowEvent,
+} from './clientWorkflow.js';

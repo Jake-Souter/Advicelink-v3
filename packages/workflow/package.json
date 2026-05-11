@@ -17,6 +17,7 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
+    "@advicelink/rbac": "workspace:*",
     "xstate": "^5.19.1"
   },
   "devDependencies": {
