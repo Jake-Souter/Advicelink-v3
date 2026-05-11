@@ -3,7 +3,6 @@ import type { Beneficiaries } from './beneficiaries.js';
 import { CONCESSIONAL_TYPES, NON_CONCESSIONAL_TYPES, type Contributions } from './contributions.js';
 import type { Financial } from './financial.js';
 import { type Insurance, isIpCover } from './insurance.js';
-import type { Liabilities } from './liabilities.js';
 import type { Personal } from './personal.js';
 import { FREQUENCY_PER_YEAR, type Frequency } from './primitives.js';
 import {
@@ -82,9 +81,10 @@ export function deriveFinancial(financial: Financial): Financial {
 }
 
 /**
- * `totalAssets` and the asset-side `totalLiabilities` (debt
- * collateralised by assets in the row). The standalone-debt total
- * lives on `liabilities.totalLiabilities` — see `deriveLiabilities`.
+ * Sums `totalAssets` and `totalLiabilities` across the unified asset
+ * row list. Standalone debts (credit cards, personal loans) are
+ * captured as rows with `assetValue=0` and `amountOwing>0`; they
+ * contribute to `totalLiabilities` but not `totalAssets`.
  */
 export function deriveAssets(assets: Assets): Assets {
   let totalAssets = 0;
@@ -98,14 +98,6 @@ export function deriveAssets(assets: Assets): Assets {
     totalAssets: TWO_DP(totalAssets),
     totalLiabilities: TWO_DP(totalLiabilities),
   };
-}
-
-export function deriveLiabilities(liabilities: Liabilities): Liabilities {
-  let totalLiabilities = 0;
-  for (const item of liabilities.items) {
-    totalLiabilities += item.amountOwing;
-  }
-  return { ...liabilities, totalLiabilities: TWO_DP(totalLiabilities) };
 }
 
 /**
@@ -227,7 +219,6 @@ export interface DeriveAllInput {
   personal: Personal;
   financial: Financial;
   assets: Assets;
-  liabilities: Liabilities;
   contributions: Contributions;
   insurance: Insurance;
   beneficiaries: Beneficiaries;
@@ -239,7 +230,6 @@ export function deriveAll(input: DeriveAllInput): DeriveAllOutput {
   const personal = derivePersonal(input.personal);
   const financial = deriveFinancial(input.financial);
   const assets = deriveAssets(input.assets);
-  const liabilities = deriveLiabilities(input.liabilities);
   const insurance = deriveInsurance(input.insurance);
   const beneficiaries = deriveBeneficiaries(input.beneficiaries);
   const riskProfile = deriveRiskProfile(input.riskProfile);
@@ -253,7 +243,6 @@ export function deriveAll(input: DeriveAllInput): DeriveAllOutput {
     personal,
     financial,
     assets,
-    liabilities,
     contributions,
     insurance,
     beneficiaries,
@@ -261,12 +250,11 @@ export function deriveAll(input: DeriveAllInput): DeriveAllOutput {
   };
 }
 
-/** Convenience: net wealth = totalAssets - all amounts owing. */
-export function deriveNetWealth(assets: Assets, liabilities: Liabilities): number {
+/** Convenience: net wealth = totalAssets - all amounts owing across the unified asset list. */
+export function deriveNetWealth(assets: Assets): number {
   const a = assets.totalAssets ?? 0;
-  const lOnAssets = assets.totalLiabilities ?? 0;
-  const lStandalone = liabilities.totalLiabilities ?? 0;
-  return TWO_DP(a - lOnAssets - lStandalone);
+  const l = assets.totalLiabilities ?? 0;
+  return TWO_DP(a - l);
 }
 
 /**

@@ -22,7 +22,7 @@ import { InsuranceEditor } from '../factFind/InsuranceEditor';
 import { PersonalEditor } from '../factFind/PersonalEditor';
 import { RiskProfileEditor } from '../factFind/RiskProfileEditor';
 import { SuperannuationEditor } from '../factFind/SuperannuationEditor';
-import { assetsSchema, liabilitiesSchema } from '@advicelink/schemas';
+import { assetsSchema } from '@advicelink/schemas';
 
 /**
  * `/t/$tenantSlug/clients/$clientId/fact-find` — the wizard.
@@ -253,15 +253,6 @@ function SectionEditor(props: SectionEditorProps): ReactElement {
           isLocked={props.isLocked}
         />
       );
-    case 'partnerEmployment':
-      return (
-        <EmploymentEditor
-          heading="Partner employment"
-          serverValue={value}
-          onSaveServer={async (parsed) => props.onSave(parsed)}
-          isLocked={props.isLocked}
-        />
-      );
     case 'financial':
       return (
         <FinancialEditor
@@ -273,28 +264,14 @@ function SectionEditor(props: SectionEditorProps): ReactElement {
     case 'assets':
       return (
         <AssetLiabilityEditor
-          heading="Assets"
-          description="Co-located with loans against each asset. Liability-only rows live in the Liabilities section."
+          heading="Assets and Liabilities"
+          description="One row per asset or debt. Standalone debts (no underlying asset) sit alongside your assets — set the asset value to 0 and fill the loan fields."
           schema={assetsSchema}
           serverValue={value}
           onSaveServer={async (parsed) => props.onSave(parsed)}
           isLocked={props.isLocked}
-          totalsLabel="assets"
-          itemListLabel="Asset rows"
-          rowMax={50}
-        />
-      );
-    case 'liabilities':
-      return (
-        <AssetLiabilityEditor
-          heading="Liabilities"
-          description="Standalone debts (e.g. unsecured personal loans) with no underlying asset row."
-          schema={liabilitiesSchema}
-          serverValue={value}
-          onSaveServer={async (parsed) => props.onSave(parsed)}
-          isLocked={props.isLocked}
-          totalsLabel="liabilities"
-          itemListLabel="Liability rows"
+          totalsLabel="assets and liabilities"
+          itemListLabel="Asset / liability rows"
           rowMax={50}
         />
       );

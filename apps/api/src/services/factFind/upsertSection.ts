@@ -18,7 +18,7 @@ import { loadFactFind } from './load.js';
  * Strategy
  * --------
  * Every save:
- *   1. Loads ALL 12 sections off the row.
+ *   1. Loads ALL 10 sections off the row.
  *   2. Validates the inbound payload against the section's schema.
  *   3. Merges the validated payload into its slot.
  *   4. Runs `deriveAll` over the whole merged set so cross-section
@@ -98,9 +98,9 @@ export async function upsertSection(tx: TxDb, input: UpsertSectionInput) {
     [input.sectionId]: parsed.data,
   };
 
-  // deriveAll only knows about the strict 8-section subset that
-  // carries derivations; the other sections (employment / partner /
-  // superannuation / goals) are left untouched.
+  // deriveAll only knows about the 7-section subset that carries
+  // derivations; the other sections (employment / superannuation /
+  // goals) are left untouched.
   const derived = deriveAll({
     personal:
       (merged.personal as typeof factFindSectionDefaults.personal) ??
@@ -110,9 +110,6 @@ export async function upsertSection(tx: TxDb, input: UpsertSectionInput) {
       factFindSectionDefaults.financial,
     assets:
       (merged.assets as typeof factFindSectionDefaults.assets) ?? factFindSectionDefaults.assets,
-    liabilities:
-      (merged.liabilities as typeof factFindSectionDefaults.liabilities) ??
-      factFindSectionDefaults.liabilities,
     contributions:
       (merged.contributions as typeof factFindSectionDefaults.contributions) ??
       factFindSectionDefaults.contributions,
@@ -133,7 +130,6 @@ export async function upsertSection(tx: TxDb, input: UpsertSectionInput) {
       personal: derived.personal,
       financial: derived.financial,
       assets: derived.assets,
-      liabilities: derived.liabilities,
       contributions: derived.contributions,
       insurance: derived.insurance,
       beneficiaries: derived.beneficiaries,
@@ -142,7 +138,6 @@ export async function upsertSection(tx: TxDb, input: UpsertSectionInput) {
       // loaded so a partial concurrent edit doesn't get clobbered
       // by sending an out-of-date copy back to the row.
       employment: merged.employment,
-      partnerEmployment: merged.partnerEmployment,
       superannuation: merged.superannuation,
       goals: merged.goals,
       updatedBy: input.actor.id,

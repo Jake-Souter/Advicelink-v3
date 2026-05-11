@@ -28,7 +28,7 @@ import { users } from './users.js';
  *    Terminal `lost` rows keep the lead-gen tenant.
  *
  * Workflow + claim columns mirror the WP-5/5.5 contract
- * (`@advicelink/workflow`). The 12 Fact Find sections are JSONB blobs
+ * (`@advicelink/workflow`). The 10 Fact Find sections are JSONB blobs
  * whose shape is owned by `@advicelink/schemas` (lands in WP-6.2);
  * here we keep them as untyped `jsonb` so the schema package owns the
  * single source of truth for shapes.
@@ -101,27 +101,26 @@ export const clients = pgTable('clients', {
    */
   nextArDate: date('next_ar_date'),
 
-  // ── Fact Find (12 sections; shapes in @advicelink/schemas / WP-6.2).
-  // The 13th historical entry — `recommendations` — was dropped in
-  // WP-7 because recommendations are an SOA Production output, not a
-  // Fact Find input. They now live exclusively under `soa_wizard_data`.
+  // ── Fact Find (10 sections; shapes in @advicelink/schemas / WP-6.2).
+  // Two historical entries — `recommendations` and `partner_employment`
+  // / `liabilities` — were dropped (WP-7 / WP-7 follow-up). Recommendations
+  // belong on `soa_wizard_data`; partner employment is captured on
+  // `personal.partner*`; standalone debts live as zero-value asset
+  // rows with `amountOwing > 0` so the projection engine can see one
+  // unified debt list.
   personal: jsonb('personal')
     .notNull()
     .default(sql`'{}'::jsonb`),
-  /** Mirrored under personal.partner* if a partner exists. */
+  /** Captures both primary and (via personal.partner*) partner employment. */
   employment: jsonb('employment')
-    .notNull()
-    .default(sql`'{}'::jsonb`),
-  partnerEmployment: jsonb('partner_employment')
     .notNull()
     .default(sql`'{}'::jsonb`),
   financial: jsonb('financial')
     .notNull()
     .default(sql`'{}'::jsonb`),
+  /** Doubles as the liabilities store: a row with assetValue=0 and
+   *  amountOwing>0 is a standalone debt. */
   assets: jsonb('assets')
-    .notNull()
-    .default(sql`'{}'::jsonb`),
-  liabilities: jsonb('liabilities')
     .notNull()
     .default(sql`'{}'::jsonb`),
   /** 5 fields per fund; max 10 funds; enforced in @advicelink/schemas. */

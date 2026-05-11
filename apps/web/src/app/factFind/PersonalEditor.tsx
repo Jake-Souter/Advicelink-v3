@@ -19,8 +19,9 @@ import { useDraftSection } from '../forms/useDraftSection';
  * status is `Married` or `De facto` (the canonical partnered set
  * exported by the schemas package as `isPartneredStatus`).
  *
- * The richer partner record (employment, income breakdown) lives on
- * the dedicated `partnerEmployment` Fact Find section.
+ * Partner income detail is captured in the Income section as a row
+ * marked against the partner; the dedicated `partnerEmployment` Fact
+ * Find section was retired in WP-7 follow-up.
  */
 
 export interface PersonalEditorProps {

@@ -101,8 +101,9 @@ export const personalSchema = z
     healthNotes: z.string().max(4000).optional(),
 
     maritalStatus: maritalStatusSchema.optional(),
-    /** Free text — display-only mirror of partner. The richer partner
-     *  data lives on `partnerEmployment` and the financial section. */
+    /** Free text — display-only mirror of partner. Partner employment
+     *  detail (employer / occupation) lives on these fields plus the
+     *  financial section income rows. */
     partnerName: z.string().trim().max(200).optional(),
     partnerDateOfBirth: isoDateSchema.optional(),
     partnerIncomeAnnual: moneySchema.optional(),

@@ -9,14 +9,17 @@ import {
 } from './primitives.js';
 
 /**
- * Assets (and shared item shape with Liabilities — REBUILD_PLAN
- * §7.5.4).
+ * Assets — also stores standalone Liabilities (REBUILD_PLAN §7.5.4).
  *
- * The UI co-locates assets and liabilities in one Fact Find section
- * but the persisted shape splits them across two columns
- * (`clients.assets` and `clients.liabilities`) so liability-only rows
- * (a debt with no underlying asset) live cleanly in their own
- * column.
+ * UI label: "Assets and Liabilities". One row shape covers three
+ * cases:
+ *   - Pure asset:        assetValue > 0, amountOwing = 0
+ *   - Asset with debt:   assetValue > 0, amountOwing > 0 (loan fields)
+ *   - Standalone debt:   assetValue = 0, amountOwing > 0 (loan fields)
+ *
+ * The dedicated `liabilities` column was dropped in WP-7 follow-up
+ * because the shared shape made the split redundant — projection,
+ * net-wealth, and the SOA template all read a single unified list.
  *
  * Loan fields are optional and only meaningful when `amountOwing > 0`.
  * The schema enforces that `amountOwing > 0 ⇒ loan fields present`
@@ -53,9 +56,8 @@ export const assetsSchema = z
     items: z.array(assetItemSchema).max(50).default([]),
     /** Derived. */
     totalAssets: moneySchema.optional(),
-    /** Derived; sum of `items[].amountOwing` (the asset-collateralised
-     *  portion of debt). The standalone-debt total lives on
-     *  `liabilities.totalLiabilities`. */
+    /** Derived; sum of `items[].amountOwing` across the unified
+     *  asset+liability row list. */
     totalLiabilities: moneySchema.optional(),
   })
   .strict();

@@ -9,11 +9,10 @@ import { SaveBar } from '../forms/SaveBar';
 import { useDraftSection } from '../forms/useDraftSection';
 
 /**
- * Shared editor used by both `assets` and `liabilities`. The two
- * sections persist into different columns but share the same row
- * shape (REBUILD_PLAN §7.5.4): every row carries `assetValue`,
- * `amountOwing`, and an optional loan block. The dispatcher passes
- * the right schema + section heading + totals labels in.
+ * Editor for the unified Assets and Liabilities section. Every row
+ * carries `assetValue`, `amountOwing`, and an optional loan block
+ * (REBUILD_PLAN §7.5.4). Standalone debts are captured as rows with
+ * `assetValue=0` and `amountOwing>0`.
  *
  * Loan-related fields render conditionally when `amountOwing > 0`
  * — keeps the row compact for unencumbered assets.
@@ -42,8 +41,9 @@ export interface AssetLiabilityEditorProps<T extends AssetsLikeShape> {
   isLocked: boolean;
   /** Defaults for a freshly-added row, e.g. { isPpor: false }. */
   newRowDefaults?: Partial<AssetItem>;
-  /** Override for the totals row labels (Assets vs Liabilities). */
-  totalsLabel: 'assets' | 'liabilities';
+  /** Label string passed through unused; kept for API stability with the
+   *  dispatcher. */
+  totalsLabel?: string;
   itemListLabel: string;
   rowMax?: number;
 }
@@ -56,7 +56,6 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
   onSaveServer,
   isLocked,
   newRowDefaults,
-  totalsLabel,
   itemListLabel,
   rowMax = 50,
 }: AssetLiabilityEditorProps<T>): ReactElement {
@@ -92,22 +91,22 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
         emptyHint="No items yet."
         summary={
           <div data-totals>
-            {totalsLabel === 'assets' ? (
-              <>
-                <span>
-                  Total assets: <strong>${(form.draft.totalAssets ?? 0).toLocaleString()}</strong>
-                </span>
-                <span>
-                  Total liabilities (on these items):{' '}
-                  <strong>${(form.draft.totalLiabilities ?? 0).toLocaleString()}</strong>
-                </span>
-              </>
-            ) : (
-              <span>
-                Total liabilities:{' '}
-                <strong>${(form.draft.totalLiabilities ?? 0).toLocaleString()}</strong>
-              </span>
-            )}
+            <span>
+              Total assets: <strong>${(form.draft.totalAssets ?? 0).toLocaleString()}</strong>
+            </span>
+            <span>
+              Total liabilities:{' '}
+              <strong>${(form.draft.totalLiabilities ?? 0).toLocaleString()}</strong>
+            </span>
+            <span>
+              Net wealth:{' '}
+              <strong>
+                $
+                {(
+                  (form.draft.totalAssets ?? 0) - (form.draft.totalLiabilities ?? 0)
+                ).toLocaleString()}
+              </strong>
+            </span>
           </div>
         }
         renderRow={(item, index, patch) => {

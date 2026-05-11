@@ -5,10 +5,10 @@ import { percentageSchema } from './primitives.js';
 /**
  * Employment section (REBUILD_PLAN §7.5.2).
  *
- * Stored on `clients.employment` for the primary client and on
- * `clients.partner_employment` for the partner — same shape, two
- * columns. Partner column is empty `{}` when `personal.maritalStatus`
- * is not Married / De facto.
+ * Stored on `clients.employment` for the primary client. Partner
+ * employment is captured on `personal.partner*` (employer/occupation)
+ * — the dedicated `partner_employment` column was dropped in WP-7
+ * follow-up because the duplication had no downstream consumer.
  *
  * The hours-of-leave fields appear on the SOA insurance section so
  * the adviser can quickly see how many weeks of cover the client
@@ -50,12 +50,3 @@ export const employmentSchema = z
 
 export type Employment = z.infer<typeof employmentSchema>;
 export const employmentDefault: Employment = employmentSchema.parse({});
-
-/**
- * Partner employment uses the same shape; alias kept for callsite
- * legibility (so `partnerEmploymentSchema` shows up in tRPC inputs
- * and reads cleanly).
- */
-export const partnerEmploymentSchema = employmentSchema;
-export type PartnerEmployment = Employment;
-export const partnerEmploymentDefault: PartnerEmployment = employmentDefault;

@@ -43,10 +43,8 @@ export interface LoadedFactFind {
 const SECTION_TO_COLUMN: Record<FactFindSectionId, keyof Client> = {
   personal: 'personal',
   employment: 'employment',
-  partnerEmployment: 'partnerEmployment',
   financial: 'financial',
   assets: 'assets',
-  liabilities: 'liabilities',
   superannuation: 'superannuation',
   contributions: 'contributions',
   insurance: 'insurance',

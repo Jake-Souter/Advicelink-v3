@@ -7,8 +7,8 @@ import {
 } from '../../src/factFind/index.js';
 
 /**
- * Cross-section sanity. The 13 entries in `FACT_FIND_SECTION_IDS`
- * (12 sections + `partnerEmployment`) must:
+ * Cross-section sanity. The 10 entries in `FACT_FIND_SECTION_IDS`
+ * must:
  *   - have a registered schema in `factFindSectionSchemas`
  *   - have a default value in `factFindSectionDefaults`
  *   - the default value must round-trip through its own schema
@@ -36,14 +36,12 @@ describe('Fact Find section registry', () => {
     }
   });
 
-  it('FACT_FIND_SECTION_IDS contains exactly the 12 expected names', () => {
+  it('FACT_FIND_SECTION_IDS contains exactly the 10 expected names', () => {
     expect([...FACT_FIND_SECTION_IDS]).toEqual([
       'personal',
       'employment',
-      'partnerEmployment',
       'financial',
       'assets',
-      'liabilities',
       'superannuation',
       'contributions',
       'insurance',

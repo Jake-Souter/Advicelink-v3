@@ -959,17 +959,20 @@ next_ar_date                date nullable
 personal                    jsonb
 employment                  jsonb
 financial                   jsonb
-assets                      jsonb
-liabilities                 jsonb
+assets                      jsonb  -- also stores standalone liabilities;
+                                   --   row.assetValue=0 + amountOwing>0 = pure debt
 superannuation              jsonb
 contributions               jsonb
 insurance                   jsonb
 beneficiaries               jsonb
 goals                       jsonb
 risk_profile                jsonb
--- (the historical `recommendations` column was dropped in WP-7;
---  recommendations are an SOA Production output and live under
---  `soa_wizard_data` instead.)
+-- Three historical Fact Find columns were dropped:
+--   * `recommendations`     (WP-7) — SOA Production output; lives under
+--                                    `soa_wizard_data`.
+--   * `partner_employment`  (WP-7 follow-up) — partner data is captured on
+--                                              `personal.partner*`.
+--   * `liabilities`         (WP-7 follow-up) — consolidated into `assets`.
 
 -- wizard outputs
 soa_wizard_data             jsonb  -- one key per SOA Wizard section (§6.12)
@@ -1021,7 +1024,7 @@ display_name                text generated always as (
 }
 ```
 
-#### 7.5.2 `employment` JSONB shape (per primary client; partner mirrored under `partnerEmployment` if present)
+#### 7.5.2 `employment` JSONB shape (primary client only; partner employer/occupation captured on `personal.partner*`)
 
 ```ts
 {
@@ -1057,7 +1060,7 @@ display_name                text generated always as (
 }
 ```
 
-#### 7.5.4 `assets` and `liabilities` JSONB shape
+#### 7.5.4 `assets` (and unified liabilities) JSONB shape
 
 ```ts
 assets: {
@@ -1065,7 +1068,7 @@ assets: {
     {
       id,
       name,
-      assetValue,
+      assetValue,                    // 0 for a standalone debt
       amountOwing,
       isPpor: bool,                  // principal place of residence
       // when amountOwing > 0:
@@ -1077,14 +1080,17 @@ assets: {
       startDate
     }
   ],
-  totalAssets,                       // derived
-  totalLiabilities                   // derived
+  totalAssets,                       // derived; sum of items[].assetValue
+  totalLiabilities                   // derived; sum of items[].amountOwing
 }
-liabilities: { items: [...] }        // same shape, only liability rows
 ```
 
-(The UI today co-locates assets and liabilities in one section but the
-backend keeps `liabilities` as its own JSONB to support liability-only rows.)
+Single Fact Find section in the UI ("Assets and Liabilities"), backed
+by a single JSONB column. A row with `assetValue = 0` and
+`amountOwing > 0` is a standalone debt (e.g. credit card, unsecured
+personal loan). The dedicated `liabilities` column was retired in
+WP-7 follow-up — projection, net wealth, and the SOA template all
+read this unified list.
 
 #### 7.5.5 `superannuation` JSONB shape (matches the current Fact Find UI exactly)
 
@@ -2820,7 +2826,7 @@ and re-pullable with a "Refresh from Fact Find" button:
 ```ts
 {
   household: {
-    netWealth,                         // derived from assets.totalAssets - liabilities.totalAssets
+    netWealth,                         // derived from assets.totalAssets - assets.totalLiabilities
     totalSuper,                        // sum of superannuation.currentFunds.currentBalance
     totalIncomeAnnual,                 // from financial.totalIncomeAnnual + partnerIncomeAnnual
     totalSgAnnual,                     // from contributions.totalSgAnnual
@@ -3745,7 +3751,7 @@ version used.
     "life": {
       "calculation": "outstandingDebts + (annualIncomeReplacementYears * grossAnnualIncome) + immediateNeeds + childrenEducationCosts - existingLiquidAssets - existingLifeCover",
       "inputs": {
-        "outstandingDebts":          "sum(liabilities.items.amountOwing)",
+        "outstandingDebts":          "sum(assets.items.amountOwing)",
         "grossAnnualIncome":         "financial.totalIncomeAnnual",
         "annualIncomeReplacementYears": 10,
         "immediateNeeds":            15000,
@@ -3758,7 +3764,7 @@ version used.
     "tpd": {
       "calculation": "outstandingDebts + (modificationsAndCare) + (annualIncomeReplacementYears * grossAnnualIncome * 0.7) - existingLiquidAssets - existingTpdCover",
       "inputs": {
-        "outstandingDebts":          "sum(liabilities.items.amountOwing)",
+        "outstandingDebts":          "sum(assets.items.amountOwing)",
         "modificationsAndCare":      250000,
         "grossAnnualIncome":         "financial.totalIncomeAnnual",
         "annualIncomeReplacementYears": 8,
@@ -3993,7 +3999,7 @@ confirm/update/replace. Section content:
 | Goals | `clients.goals` | All free-text answers, retirement age, retirement income | `_locked[goalKey]` per question respected |
 | Employment | `clients.employment` | All fields | None |
 | Income | `clients.financial` | All income items | None |
-| Assets | `clients.assets` + `clients.liabilities` | All rows | None |
+| Assets and Liabilities | `clients.assets` (unified asset+debt rows) | All rows | None |
 | Superannuation | `clients.superannuation.currentFunds` | All 5 fields per fund (matches §7.5.5) | None |
 | Beneficiaries | `clients.beneficiaries` | All rows | None |
 | Contributions | `clients.contributions` | All rows + SG metadata | None |
@@ -4333,7 +4339,7 @@ flows into the SOA's `strategyRecommendations.themes`).
 #### 19.14.1 Cashflow tab
 - Tile: `Total income (annual)` ← `financial.totalIncomeAnnual`
 - Tile: `Total SG (annual)` ← `financial.totalSgAnnual`
-- Tile: `Total liabilities` ← `liabilities.totalLiabilities`
+- Tile: `Total liabilities` ← `assets.totalLiabilities`
 - Tile: `Estimated weekly expenses` ← editable adviser entry
 - Tile: `Surplus before strategy (annual, derived)` ← computed as
   `totalIncomeAnnual - 52*estimatedWeeklyExpenses - totalLoanRepaymentsAnnual`

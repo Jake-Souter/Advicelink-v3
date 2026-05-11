@@ -1,5 +1,5 @@
 /**
- * Fact Find — 12 section schemas + server-side derivation helpers.
+ * Fact Find — 10 section schemas + server-side derivation helpers.
  * The frontend imports inferred types via the tRPC client; service
  * code imports the schemas + derivations directly.
  *
@@ -8,29 +8,30 @@
  *
  * Section list (in Fact Find UI order):
  *   1.  personal
- *   2.  employment + partnerEmployment
+ *   2.  employment
  *   3.  financial
- *   4.  assets
- *   5.  liabilities
- *   6.  superannuation
- *   7.  contributions
- *   8.  insurance
- *   9.  beneficiaries
- *  10.  goals
- *  11.  riskProfile
+ *   4.  assets               — also stores standalone liabilities
+ *                              (asset rows with assetValue=0,
+ *                              amountOwing>0). UI label: "Assets and
+ *                              Liabilities".
+ *   5.  superannuation
+ *   6.  contributions
+ *   7.  insurance
+ *   8.  beneficiaries
+ *   9.  goals
+ *  10.  riskProfile
  *
- * `recommendations` was previously listed here as section 12; it was
- * removed in WP-7 because recommendations are an SOA Production
- * output, not a Fact Find input. Their canonical home is
- * `clients.soa_wizard_data` (shapes will land alongside the SOA
- * Wizard schemas in WP-8).
+ * Three historical entries were removed:
+ *   - `recommendations` (WP-7): SOA Production output, not Fact Find
+ *     input; lives on `clients.soa_wizard_data`.
+ *   - `partnerEmployment` (WP-7 follow-up): captured on `personal.partner*`.
+ *   - `liabilities` (WP-7 follow-up): consolidated into `assets`.
  */
 export * from './primitives.js';
 export * from './personal.js';
 export * from './employment.js';
 export * from './financial.js';
 export * from './assets.js';
-export * from './liabilities.js';
 export * from './superannuation.js';
 export * from './contributions.js';
 export * from './insurance.js';
@@ -42,11 +43,10 @@ export * from './derivations.js';
 import { assetsDefault, assetsSchema } from './assets.js';
 import { beneficiariesDefault, beneficiariesSchema } from './beneficiaries.js';
 import { contributionsDefault, contributionsSchema } from './contributions.js';
-import { employmentDefault, employmentSchema, partnerEmploymentSchema } from './employment.js';
+import { employmentDefault, employmentSchema } from './employment.js';
 import { financialDefault, financialSchema } from './financial.js';
 import { goalsDefault, goalsSchema } from './goals.js';
 import { insuranceDefault, insuranceSchema } from './insurance.js';
-import { liabilitiesDefault, liabilitiesSchema } from './liabilities.js';
 import { personalDefault, personalSchema } from './personal.js';
 import { riskProfileDefault, riskProfileSchema } from './riskProfile.js';
 import { superannuationDefault, superannuationSchema } from './superannuation.js';
@@ -59,10 +59,8 @@ import { superannuationDefault, superannuationSchema } from './superannuation.js
 export const FACT_FIND_SECTION_IDS = [
   'personal',
   'employment',
-  'partnerEmployment',
   'financial',
   'assets',
-  'liabilities',
   'superannuation',
   'contributions',
   'insurance',
@@ -80,10 +78,8 @@ export type FactFindSectionId = (typeof FACT_FIND_SECTION_IDS)[number];
 export const factFindSectionSchemas = {
   personal: personalSchema,
   employment: employmentSchema,
-  partnerEmployment: partnerEmploymentSchema,
   financial: financialSchema,
   assets: assetsSchema,
-  liabilities: liabilitiesSchema,
   superannuation: superannuationSchema,
   contributions: contributionsSchema,
   insurance: insuranceSchema,
@@ -100,10 +96,8 @@ export const factFindSectionSchemas = {
 export const factFindSectionDefaults = {
   personal: personalDefault,
   employment: employmentDefault,
-  partnerEmployment: employmentDefault,
   financial: financialDefault,
   assets: assetsDefault,
-  liabilities: liabilitiesDefault,
   superannuation: superannuationDefault,
   contributions: contributionsDefault,
   insurance: insuranceDefault,

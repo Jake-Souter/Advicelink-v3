@@ -8,7 +8,6 @@ import {
   deriveContributions,
   deriveFinancial,
   deriveInsurance,
-  deriveLiabilities,
   deriveNetWealth,
   deriveRiskProfile,
 } from '../../src/factFind/derivations.js';
@@ -78,7 +77,7 @@ describe('deriveFinancial', () => {
   });
 });
 
-describe('deriveAssets / deriveLiabilities / deriveNetWealth', () => {
+describe('deriveAssets / deriveNetWealth', () => {
   it('totals asset values and asset-side debt', () => {
     const a = deriveAssets({
       items: [
@@ -90,8 +89,8 @@ describe('deriveAssets / deriveLiabilities / deriveNetWealth', () => {
     expect(a.totalLiabilities).toBe(500000);
   });
 
-  it('totals standalone liabilities', () => {
-    const l = deriveLiabilities({
+  it('treats standalone debts (assetValue=0, amountOwing>0) as pure liabilities', () => {
+    const a = deriveAssets({
       items: [
         {
           id: uuid('l1', 1),
@@ -102,19 +101,18 @@ describe('deriveAssets / deriveLiabilities / deriveNetWealth', () => {
         },
       ],
     });
-    expect(l.totalLiabilities).toBe(12000);
+    expect(a.totalAssets).toBe(0);
+    expect(a.totalLiabilities).toBe(12000);
   });
 
-  it('net wealth subtracts both asset-side and standalone debt', () => {
+  it('net wealth subtracts every amountOwing across the unified row list', () => {
     const a = deriveAssets({
       items: [
         { id: uuid('a3', 3), name: 'House', assetValue: 800000, amountOwing: 500000, isPpor: true },
+        { id: uuid('l2', 2), name: 'CC', assetValue: 0, amountOwing: 5000, isPpor: false },
       ],
     });
-    const l = deriveLiabilities({
-      items: [{ id: uuid('l2', 2), name: 'CC', assetValue: 0, amountOwing: 5000, isPpor: false }],
-    });
-    expect(deriveNetWealth(a, l)).toBe(295000);
+    expect(deriveNetWealth(a)).toBe(295000);
   });
 });
 

@@ -9,9 +9,9 @@ import { useDraftSection } from '../forms/useDraftSection';
 /**
  * Employment editor (REBUILD_PLAN §7.5.2).
  *
- * Used twice — once for the primary client (`employment` section) and
- * once for the partner (`partnerEmployment`) — with a label prop
- * that swaps the heading. Same Zod shape, two columns on `clients`.
+ * Captures the primary client's employment. Partner employment data
+ * (employer, occupation) lives on `personal.partner*`; the dedicated
+ * `partnerEmployment` Fact Find section was retired in WP-7 follow-up.
  *
  * Hours-of-leave inputs are presented in the same row as the
  * employment status because that is how advisers think about them
