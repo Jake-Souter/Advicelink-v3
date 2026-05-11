@@ -1,19 +1,19 @@
 /**
- * Anthropic Claude client + prompt registry runtime.
+ * `@advicelink/ai` — single home for the LLM client wrapper, prompt
+ * registry, redaction layer, and cost rate card.
  *
- * The single entrypoint `callClaude(promptKey, inputs, ctx)` ships in Work
- * Package 8 (SOA Wizard) when AI assist is wired into the first wizard
- * section. See REBUILD_PLAN.md §9.4, §10.4, §19.12.9 for the full behaviour:
- * registry lookup, PII redaction, audit row in `ai_invocations`, tenant
- * monthly token budget enforcement.
+ * Per REBUILD_PLAN §10.4, every Claude call originates here. The per-
+ * app service layer composes:
+ *   1. `redactValue(input)` to strip PII
+ *   2. `AnthropicAdapter.runPrompt(key, input)` to make the call
+ *   3. `computeCostCents({ model, inputTokens, outputTokens })`
+ *   4. INSERT into `ai_invocations`
  *
- * No prompt strings may be inlined in feature code — they all live in
- * `./registry.ts`.
+ * The package itself does NOT reach for the database; that keeps it
+ * usable from workers and CLIs that may want to call Anthropic
+ * without a tenant transaction in scope.
  */
-export type PromptKey = string; // narrowed once the registry is populated
-
-export interface CallClaudeContext {
-  tenantId: string;
-  userId: string;
-  clientId?: string;
-}
+export * from './prompts.js';
+export * from './redact.js';
+export * from './anthropic.js';
+export * from './cost.js';

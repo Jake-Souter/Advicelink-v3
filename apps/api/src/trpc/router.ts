@@ -1,5 +1,7 @@
 import { router } from './trpc.js';
 import { authRouter } from './routers/auth.js';
+import { clientsRouter } from './routers/clients.js';
+import { factFindRouter } from './routers/factFind.js';
 import { healthRouter } from './routers/health.js';
 import { tenantsRouter } from './routers/tenants.js';
 
@@ -14,6 +16,8 @@ export const appRouter = router({
   health: healthRouter,
   auth: authRouter,
   tenants: tenantsRouter,
+  clients: clientsRouter,
+  factFind: factFindRouter,
 });
 
 export type AppRouter = typeof appRouter;

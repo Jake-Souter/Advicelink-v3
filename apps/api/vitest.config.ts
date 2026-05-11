@@ -12,8 +12,13 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    // Tests connect to Railway via the public TCP proxy from a laptop;
+    // a Fact Find lock test makes ~6 round-trips (load + upsert +
+    // load + lock + select + select). 60s leaves comfortable headroom
+    // even on slow network days. The same value is used by the
+    // packages/db RLS suite.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     pool: 'forks',
     poolOptions: { forks: { singleFork: true } },
   },
