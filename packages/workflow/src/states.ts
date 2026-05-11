@@ -116,6 +116,71 @@ export const STATE_TO_PHASE: Readonly<Record<WorkflowState, WorkflowPhase>> = {
  */
 export const TERMINAL_STATES: readonly WorkflowState[] = ['lost'];
 
+/* ─────────────────────────────────────────────────────────────────
+ * Named state-set helpers
+ *
+ * Several UI surfaces (portal kanbans, list filters) need to talk
+ * about a *named subset* of the workflow that doesn't line up with
+ * a single phase — e.g. "the SOA states a paraplanner can claim
+ * from" (a strict subset of `soaProduction`), or "the active states
+ * an adviser owns post-handoff" (which spans 3 phases).
+ *
+ * These named exports exist so call-sites elsewhere in the repo can
+ * reference one identifier instead of inlining state literals (which
+ * the `no-restricted-syntax` ESLint rule rightly bans). They sit in
+ * `@advicelink/workflow` because the workflow package is the single
+ * place allowed to enumerate state names as raw strings.
+ *
+ * Update REBUILD_PLAN §6 if the bucket ownership rules change.
+ * ─────────────────────────────────────────────────────────────── */
+
+/**
+ * SOA states a paraplanner can claim FROM. `reviewingSOA` is
+ * intentionally excluded — once the SOA is sent for review, the
+ * adviser owns the work and a paraplanner shouldn't be able to take
+ * the row mid-review.
+ */
+export const PARAPLANNER_CLAIMABLE_STATES: readonly WorkflowState[] = [
+  'draftingSOA',
+  'amendingSOA',
+];
+
+/**
+ * Active states an adviser owns post-handoff. Used by the Adviser
+ * Portal "My clients" bucket. Spans `presentation`, `complete`, and
+ * `waiting` phases, hence a named set rather than a phase filter.
+ */
+export const ADVISER_ACTIVE_STATES: readonly WorkflowState[] = [
+  'welcomeCallScheduled',
+  'implementingAdvice',
+  'insuranceAmendment',
+  'waitingForAR',
+];
+
+/**
+ * AR-pipeline buckets visible to the adviser portal. A strict subset
+ * of `annualReview` excluding `draftingAR` (paraplanner-owned) and
+ * `arComplete` (briefly-held terminal-of-cycle).
+ */
+export const AR_PIPELINE_STATES: readonly WorkflowState[] = ['dueForAR', 'arBooked', 'reviewingAR'];
+
+/**
+ * AR Wizard "in progress" set for the AR adviser portal — the AR
+ * adviser is actively engaged from booked through reviewing.
+ */
+export const AR_WIZARD_IN_PROGRESS_STATES: readonly WorkflowState[] = [
+  'arBooked',
+  'draftingAR',
+  'reviewingAR',
+];
+
+/**
+ * The two states that count toward the "AR imminent" / "AR overdue"
+ * windows — clients are post-advice but pre-AR-flagged. The cron
+ * `auto-ar-due` watches this same set.
+ */
+export const PRE_AR_FLAG_STATES: readonly WorkflowState[] = ['implementingAdvice', 'waitingForAR'];
+
 /**
  * The minimum shape `isInPhase` / `isInState` / `canTransition` need
  * from a client. Callers pass the row directly — the helpers only ever

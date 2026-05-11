@@ -16,10 +16,22 @@ if (client.workflow_state === 'draftingSOA') { ... }
 if (['draftingSOA', 'reviewingSOA'].includes(client.workflow_state)) { ... }
 
 // ✅ GOOD — use the helpers from packages/workflow
-import { isInPhase, canTransition, isInState } from '@advicelink/workflow';
+import {
+  isInPhase, canTransition, isInState,
+  PARAPLANNER_CLAIMABLE_STATES,
+  ADVISER_ACTIVE_STATES,
+  AR_PIPELINE_STATES,
+  AR_WIZARD_IN_PROGRESS_STATES,
+  PRE_AR_FLAG_STATES,
+} from '@advicelink/workflow';
 
 if (isInPhase('soaProduction', client)) { ... }
 if (canTransition('lockFactFind', client, user).ok) { ... }
+
+// ✅ GOOD — for portal/list filters that need a NAMED subset of
+//   states (e.g. paraplanner-claimable, AR-pipeline, etc.) import
+//   the named constant rather than re-declaring the array literal.
+db.where(inArray(clients.workflowState, [...PARAPLANNER_CLAIMABLE_STATES]));
 ```
 
 ## Transitions

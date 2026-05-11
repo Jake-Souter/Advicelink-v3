@@ -1,6 +1,9 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useState, type ReactElement, type ReactNode } from 'react';
 
+import type { Role } from '@advicelink/rbac';
+
+import { trpc } from '../../lib/trpc';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenant } from '../providers/TenantProvider';
 
@@ -31,11 +34,19 @@ export interface AppShellProps {
 export function AppShell({ tenantSlug, children }: AppShellProps): ReactElement {
   const tenant = useTenant();
   const { user, signOut } = useAuth();
+  const whoami = trpc.auth.whoami.useQuery();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [signingOut, setSigningOut] = useState(false);
 
+  // Derive the role-specific portal link so the sidebar always
+  // includes a one-click route back to the actor's primary surface.
+  // Roles without a dedicated portal (legacy_import) fall back to
+  // the clients list and the portal nav entry is suppressed.
+  const portalEntry = portalNavItemForRole(tenantSlug, whoami.data?.user.role as Role | undefined);
+
   const navItems: NavItem[] = [
     { label: 'Home', to: `/t/${tenantSlug}/home` },
+    ...(portalEntry ? [portalEntry] : []),
     { label: 'Clients', to: `/t/${tenantSlug}/clients` },
   ];
 
@@ -82,4 +93,27 @@ export function AppShell({ tenantSlug, children }: AppShellProps): ReactElement 
       </main>
     </div>
   );
+}
+
+function portalNavItemForRole(tenantSlug: string, role: Role | undefined): NavItem | null {
+  switch (role) {
+    case 'lead_gen':
+      return { label: 'Lead Gen portal', to: `/t/${tenantSlug}/portal/lead-gen` };
+    case 'adviser':
+      return { label: 'Adviser portal', to: `/t/${tenantSlug}/portal/adviser` };
+    case 'paraplanner':
+      return { label: 'Paraplanner portal', to: `/t/${tenantSlug}/portal/paraplanner` };
+    case 'uf_support':
+      return { label: 'UF Support portal', to: `/t/${tenantSlug}/portal/uf-support` };
+    case 'ar_support':
+      return { label: 'AR Support portal', to: `/t/${tenantSlug}/portal/ar-support` };
+    case 'ar_adviser':
+      return { label: 'AR Adviser portal', to: `/t/${tenantSlug}/portal/ar-adviser` };
+    case 'management':
+    case 'tenant_super_admin':
+    case 'platform_super_admin':
+      return { label: 'Adviser portal', to: `/t/${tenantSlug}/portal/adviser` };
+    default:
+      return null;
+  }
 }

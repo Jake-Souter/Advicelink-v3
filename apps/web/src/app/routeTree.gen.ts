@@ -16,6 +16,12 @@ import { Route as TTenantSlugLoginRouteImport } from './routes/t.$tenantSlug.log
 import { Route as TTenantSlugAuthedRouteImport } from './routes/t.$tenantSlug._authed'
 import { Route as TTenantSlugAuthedHomeRouteImport } from './routes/t.$tenantSlug._authed.home'
 import { Route as TTenantSlugAuthedClientsIndexRouteImport } from './routes/t.$tenantSlug._authed.clients.index'
+import { Route as TTenantSlugAuthedPortalUfSupportRouteImport } from './routes/t.$tenantSlug._authed.portal.uf-support'
+import { Route as TTenantSlugAuthedPortalParaplannerRouteImport } from './routes/t.$tenantSlug._authed.portal.paraplanner'
+import { Route as TTenantSlugAuthedPortalLeadGenRouteImport } from './routes/t.$tenantSlug._authed.portal.lead-gen'
+import { Route as TTenantSlugAuthedPortalArSupportRouteImport } from './routes/t.$tenantSlug._authed.portal.ar-support'
+import { Route as TTenantSlugAuthedPortalArAdviserRouteImport } from './routes/t.$tenantSlug._authed.portal.ar-adviser'
+import { Route as TTenantSlugAuthedPortalAdviserRouteImport } from './routes/t.$tenantSlug._authed.portal.adviser'
 import { Route as TTenantSlugAuthedClientsNewRouteImport } from './routes/t.$tenantSlug._authed.clients.new'
 import { Route as TTenantSlugAuthedClientsClientIdFactFindRouteImport } from './routes/t.$tenantSlug._authed.clients.$clientId.fact-find'
 
@@ -54,6 +60,42 @@ const TTenantSlugAuthedClientsIndexRoute =
     path: '/clients/',
     getParentRoute: () => TTenantSlugAuthedRoute,
   } as any)
+const TTenantSlugAuthedPortalUfSupportRoute =
+  TTenantSlugAuthedPortalUfSupportRouteImport.update({
+    id: '/portal/uf-support',
+    path: '/portal/uf-support',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
+const TTenantSlugAuthedPortalParaplannerRoute =
+  TTenantSlugAuthedPortalParaplannerRouteImport.update({
+    id: '/portal/paraplanner',
+    path: '/portal/paraplanner',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
+const TTenantSlugAuthedPortalLeadGenRoute =
+  TTenantSlugAuthedPortalLeadGenRouteImport.update({
+    id: '/portal/lead-gen',
+    path: '/portal/lead-gen',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
+const TTenantSlugAuthedPortalArSupportRoute =
+  TTenantSlugAuthedPortalArSupportRouteImport.update({
+    id: '/portal/ar-support',
+    path: '/portal/ar-support',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
+const TTenantSlugAuthedPortalArAdviserRoute =
+  TTenantSlugAuthedPortalArAdviserRouteImport.update({
+    id: '/portal/ar-adviser',
+    path: '/portal/ar-adviser',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
+const TTenantSlugAuthedPortalAdviserRoute =
+  TTenantSlugAuthedPortalAdviserRouteImport.update({
+    id: '/portal/adviser',
+    path: '/portal/adviser',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
 const TTenantSlugAuthedClientsNewRoute =
   TTenantSlugAuthedClientsNewRouteImport.update({
     id: '/clients/new',
@@ -74,6 +116,12 @@ export interface FileRoutesByFullPath {
   '/t/$tenantSlug/': typeof TTenantSlugIndexRoute
   '/t/$tenantSlug/home': typeof TTenantSlugAuthedHomeRoute
   '/t/$tenantSlug/clients/new': typeof TTenantSlugAuthedClientsNewRoute
+  '/t/$tenantSlug/portal/adviser': typeof TTenantSlugAuthedPortalAdviserRoute
+  '/t/$tenantSlug/portal/ar-adviser': typeof TTenantSlugAuthedPortalArAdviserRoute
+  '/t/$tenantSlug/portal/ar-support': typeof TTenantSlugAuthedPortalArSupportRoute
+  '/t/$tenantSlug/portal/lead-gen': typeof TTenantSlugAuthedPortalLeadGenRoute
+  '/t/$tenantSlug/portal/paraplanner': typeof TTenantSlugAuthedPortalParaplannerRoute
+  '/t/$tenantSlug/portal/uf-support': typeof TTenantSlugAuthedPortalUfSupportRoute
   '/t/$tenantSlug/clients/': typeof TTenantSlugAuthedClientsIndexRoute
   '/t/$tenantSlug/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
@@ -83,6 +131,12 @@ export interface FileRoutesByTo {
   '/t/$tenantSlug/login': typeof TTenantSlugLoginRoute
   '/t/$tenantSlug/home': typeof TTenantSlugAuthedHomeRoute
   '/t/$tenantSlug/clients/new': typeof TTenantSlugAuthedClientsNewRoute
+  '/t/$tenantSlug/portal/adviser': typeof TTenantSlugAuthedPortalAdviserRoute
+  '/t/$tenantSlug/portal/ar-adviser': typeof TTenantSlugAuthedPortalArAdviserRoute
+  '/t/$tenantSlug/portal/ar-support': typeof TTenantSlugAuthedPortalArSupportRoute
+  '/t/$tenantSlug/portal/lead-gen': typeof TTenantSlugAuthedPortalLeadGenRoute
+  '/t/$tenantSlug/portal/paraplanner': typeof TTenantSlugAuthedPortalParaplannerRoute
+  '/t/$tenantSlug/portal/uf-support': typeof TTenantSlugAuthedPortalUfSupportRoute
   '/t/$tenantSlug/clients': typeof TTenantSlugAuthedClientsIndexRoute
   '/t/$tenantSlug/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
@@ -95,6 +149,12 @@ export interface FileRoutesById {
   '/t/$tenantSlug/': typeof TTenantSlugIndexRoute
   '/t/$tenantSlug/_authed/home': typeof TTenantSlugAuthedHomeRoute
   '/t/$tenantSlug/_authed/clients/new': typeof TTenantSlugAuthedClientsNewRoute
+  '/t/$tenantSlug/_authed/portal/adviser': typeof TTenantSlugAuthedPortalAdviserRoute
+  '/t/$tenantSlug/_authed/portal/ar-adviser': typeof TTenantSlugAuthedPortalArAdviserRoute
+  '/t/$tenantSlug/_authed/portal/ar-support': typeof TTenantSlugAuthedPortalArSupportRoute
+  '/t/$tenantSlug/_authed/portal/lead-gen': typeof TTenantSlugAuthedPortalLeadGenRoute
+  '/t/$tenantSlug/_authed/portal/paraplanner': typeof TTenantSlugAuthedPortalParaplannerRoute
+  '/t/$tenantSlug/_authed/portal/uf-support': typeof TTenantSlugAuthedPortalUfSupportRoute
   '/t/$tenantSlug/_authed/clients/': typeof TTenantSlugAuthedClientsIndexRoute
   '/t/$tenantSlug/_authed/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
@@ -107,6 +167,12 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/'
     | '/t/$tenantSlug/home'
     | '/t/$tenantSlug/clients/new'
+    | '/t/$tenantSlug/portal/adviser'
+    | '/t/$tenantSlug/portal/ar-adviser'
+    | '/t/$tenantSlug/portal/ar-support'
+    | '/t/$tenantSlug/portal/lead-gen'
+    | '/t/$tenantSlug/portal/paraplanner'
+    | '/t/$tenantSlug/portal/uf-support'
     | '/t/$tenantSlug/clients/'
     | '/t/$tenantSlug/clients/$clientId/fact-find'
   fileRoutesByTo: FileRoutesByTo
@@ -116,6 +182,12 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/login'
     | '/t/$tenantSlug/home'
     | '/t/$tenantSlug/clients/new'
+    | '/t/$tenantSlug/portal/adviser'
+    | '/t/$tenantSlug/portal/ar-adviser'
+    | '/t/$tenantSlug/portal/ar-support'
+    | '/t/$tenantSlug/portal/lead-gen'
+    | '/t/$tenantSlug/portal/paraplanner'
+    | '/t/$tenantSlug/portal/uf-support'
     | '/t/$tenantSlug/clients'
     | '/t/$tenantSlug/clients/$clientId/fact-find'
   id:
@@ -127,6 +199,12 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/'
     | '/t/$tenantSlug/_authed/home'
     | '/t/$tenantSlug/_authed/clients/new'
+    | '/t/$tenantSlug/_authed/portal/adviser'
+    | '/t/$tenantSlug/_authed/portal/ar-adviser'
+    | '/t/$tenantSlug/_authed/portal/ar-support'
+    | '/t/$tenantSlug/_authed/portal/lead-gen'
+    | '/t/$tenantSlug/_authed/portal/paraplanner'
+    | '/t/$tenantSlug/_authed/portal/uf-support'
     | '/t/$tenantSlug/_authed/clients/'
     | '/t/$tenantSlug/_authed/clients/$clientId/fact-find'
   fileRoutesById: FileRoutesById
@@ -187,6 +265,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TTenantSlugAuthedClientsIndexRouteImport
       parentRoute: typeof TTenantSlugAuthedRoute
     }
+    '/t/$tenantSlug/_authed/portal/uf-support': {
+      id: '/t/$tenantSlug/_authed/portal/uf-support'
+      path: '/portal/uf-support'
+      fullPath: '/t/$tenantSlug/portal/uf-support'
+      preLoaderRoute: typeof TTenantSlugAuthedPortalUfSupportRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
+    '/t/$tenantSlug/_authed/portal/paraplanner': {
+      id: '/t/$tenantSlug/_authed/portal/paraplanner'
+      path: '/portal/paraplanner'
+      fullPath: '/t/$tenantSlug/portal/paraplanner'
+      preLoaderRoute: typeof TTenantSlugAuthedPortalParaplannerRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
+    '/t/$tenantSlug/_authed/portal/lead-gen': {
+      id: '/t/$tenantSlug/_authed/portal/lead-gen'
+      path: '/portal/lead-gen'
+      fullPath: '/t/$tenantSlug/portal/lead-gen'
+      preLoaderRoute: typeof TTenantSlugAuthedPortalLeadGenRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
+    '/t/$tenantSlug/_authed/portal/ar-support': {
+      id: '/t/$tenantSlug/_authed/portal/ar-support'
+      path: '/portal/ar-support'
+      fullPath: '/t/$tenantSlug/portal/ar-support'
+      preLoaderRoute: typeof TTenantSlugAuthedPortalArSupportRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
+    '/t/$tenantSlug/_authed/portal/ar-adviser': {
+      id: '/t/$tenantSlug/_authed/portal/ar-adviser'
+      path: '/portal/ar-adviser'
+      fullPath: '/t/$tenantSlug/portal/ar-adviser'
+      preLoaderRoute: typeof TTenantSlugAuthedPortalArAdviserRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
+    '/t/$tenantSlug/_authed/portal/adviser': {
+      id: '/t/$tenantSlug/_authed/portal/adviser'
+      path: '/portal/adviser'
+      fullPath: '/t/$tenantSlug/portal/adviser'
+      preLoaderRoute: typeof TTenantSlugAuthedPortalAdviserRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
     '/t/$tenantSlug/_authed/clients/new': {
       id: '/t/$tenantSlug/_authed/clients/new'
       path: '/clients/new'
@@ -207,6 +327,12 @@ declare module '@tanstack/react-router' {
 interface TTenantSlugAuthedRouteChildren {
   TTenantSlugAuthedHomeRoute: typeof TTenantSlugAuthedHomeRoute
   TTenantSlugAuthedClientsNewRoute: typeof TTenantSlugAuthedClientsNewRoute
+  TTenantSlugAuthedPortalAdviserRoute: typeof TTenantSlugAuthedPortalAdviserRoute
+  TTenantSlugAuthedPortalArAdviserRoute: typeof TTenantSlugAuthedPortalArAdviserRoute
+  TTenantSlugAuthedPortalArSupportRoute: typeof TTenantSlugAuthedPortalArSupportRoute
+  TTenantSlugAuthedPortalLeadGenRoute: typeof TTenantSlugAuthedPortalLeadGenRoute
+  TTenantSlugAuthedPortalParaplannerRoute: typeof TTenantSlugAuthedPortalParaplannerRoute
+  TTenantSlugAuthedPortalUfSupportRoute: typeof TTenantSlugAuthedPortalUfSupportRoute
   TTenantSlugAuthedClientsIndexRoute: typeof TTenantSlugAuthedClientsIndexRoute
   TTenantSlugAuthedClientsClientIdFactFindRoute: typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
@@ -214,6 +340,13 @@ interface TTenantSlugAuthedRouteChildren {
 const TTenantSlugAuthedRouteChildren: TTenantSlugAuthedRouteChildren = {
   TTenantSlugAuthedHomeRoute: TTenantSlugAuthedHomeRoute,
   TTenantSlugAuthedClientsNewRoute: TTenantSlugAuthedClientsNewRoute,
+  TTenantSlugAuthedPortalAdviserRoute: TTenantSlugAuthedPortalAdviserRoute,
+  TTenantSlugAuthedPortalArAdviserRoute: TTenantSlugAuthedPortalArAdviserRoute,
+  TTenantSlugAuthedPortalArSupportRoute: TTenantSlugAuthedPortalArSupportRoute,
+  TTenantSlugAuthedPortalLeadGenRoute: TTenantSlugAuthedPortalLeadGenRoute,
+  TTenantSlugAuthedPortalParaplannerRoute:
+    TTenantSlugAuthedPortalParaplannerRoute,
+  TTenantSlugAuthedPortalUfSupportRoute: TTenantSlugAuthedPortalUfSupportRoute,
   TTenantSlugAuthedClientsIndexRoute: TTenantSlugAuthedClientsIndexRoute,
   TTenantSlugAuthedClientsClientIdFactFindRoute:
     TTenantSlugAuthedClientsClientIdFactFindRoute,

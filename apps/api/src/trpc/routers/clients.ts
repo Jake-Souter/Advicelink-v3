@@ -15,7 +15,9 @@ import {
   assertCanWriteClient,
   type ClientTenancySnapshot,
 } from '../../services/clients/access.js';
+import { claimParaplanner, releaseParaplanner } from '../../services/clients/paraplannerClaim.js';
 import { executeTransition } from '../../services/workflow/transition.js';
+import { listForPortal, type PortalKey } from '../../services/portals/listForPortal.js';
 
 /**
  * `clients.*` — the client lifecycle surface.
@@ -80,6 +82,21 @@ const listInput = z
   })
   .optional();
 
+const portalKey = z.enum([
+  'lead-gen',
+  'adviser',
+  'paraplanner',
+  'uf-support',
+  'ar-support',
+  'ar-adviser',
+] as const satisfies readonly PortalKey[]);
+const listForPortalInput = z.object({ portal: portalKey });
+const claimInput = z.object({ clientId: z.string().uuid() });
+const releaseInput = z.object({
+  clientId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(1000).optional(),
+});
+
 export const clientsRouter = router({
   create: withRoles(['lead_gen', 'adviser', 'paraplanner', 'uf_support'])
     .input(createInput)
@@ -119,6 +136,49 @@ export const clientsRouter = router({
       .limit(limit);
     return rows;
   }),
+
+  /**
+   * Bucketed view of clients for a given role-specific portal.
+   * Defence-in-depth: the service rejects calls from roles that
+   * shouldn't see the portal even though `withRoles` filters at the
+   * router level too.
+   */
+  listForPortal: authedProcedure.input(listForPortalInput).query(async ({ ctx, input }) => {
+    return listForPortal(ctx.db, input.portal, {
+      id: ctx.user.id,
+      role: ctx.user.role,
+      tenantId: ctx.tenant.id,
+    });
+  }),
+
+  /** Paraplanner claim — exclusive lock per client, audit-logged. */
+  claimParaplanner: withRoles(['paraplanner'])
+    .input(claimInput)
+    .mutation(async ({ ctx, input }) => {
+      await claimParaplanner(ctx.db, {
+        clientId: input.clientId,
+        actor: { id: ctx.user.id, role: ctx.user.role, tenantId: ctx.tenant.id },
+      });
+      ctx.logger.info({ clientId: input.clientId }, 'clients.claimParaplanner');
+      return { ok: true } as const;
+    }),
+
+  /**
+   * Paraplanner release — clears the claim. Self-release is always
+   * allowed for the holder; force-release is gated to the assigned
+   * adviser or a tenant super-admin (validated in the service).
+   */
+  releaseParaplanner: withRoles(['paraplanner', 'adviser'])
+    .input(releaseInput)
+    .mutation(async ({ ctx, input }) => {
+      await releaseParaplanner(ctx.db, {
+        clientId: input.clientId,
+        actor: { id: ctx.user.id, role: ctx.user.role, tenantId: ctx.tenant.id },
+        reason: input.reason,
+      });
+      ctx.logger.info({ clientId: input.clientId }, 'clients.releaseParaplanner');
+      return { ok: true } as const;
+    }),
 
   byId: authedProcedure.input(byIdInput).query(async ({ ctx, input }) => {
     const row = await loadClientTenancy(ctx.db, input.clientId);

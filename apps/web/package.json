@@ -17,6 +17,7 @@
     "@advicelink/ai": "workspace:*",
     "@advicelink/api": "workspace:*",
     "@advicelink/branding": "workspace:*",
+    "@advicelink/rbac": "workspace:*",
     "@advicelink/schemas": "workspace:*",
     "@advicelink/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.11",

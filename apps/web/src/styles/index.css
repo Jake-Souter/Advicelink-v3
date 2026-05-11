@@ -549,3 +549,105 @@ body {
 [data-row-grid='3'] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+
+/* ──────────────────────────────────────────────────────────────────
+ *  WP-7 — Role-specific portals
+ * ────────────────────────────────────────────────────────────────── */
+
+[data-portal-kanban] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: theme('spacing.4');
+  align-items: start;
+}
+
+[data-portal-bucket] {
+  background-color: theme('colors.surface.raised');
+  border: 1px solid theme('colors.border.subtle');
+  border-radius: theme('borderRadius.lg');
+  padding: theme('spacing.4');
+  display: flex;
+  flex-direction: column;
+  gap: theme('spacing.3');
+  min-height: 12rem;
+}
+
+[data-portal-bucket] header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: theme('spacing.2');
+}
+
+[data-portal-bucket] header h2 {
+  font-family: theme('fontFamily.display');
+  font-size: theme('fontSize.lg');
+  font-weight: theme('fontWeight.semibold');
+  color: theme('colors.text.primary');
+  margin: 0;
+}
+
+[data-portal-bucket] > p {
+  font-size: theme('fontSize.xs');
+  color: theme('colors.text.tertiary');
+  margin: 0;
+}
+
+[data-portal-card-list] {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: theme('spacing.3');
+}
+
+[data-portal-card] {
+  background-color: theme('colors.surface.base');
+  border: 1px solid theme('colors.border.subtle');
+  border-radius: theme('borderRadius.md');
+  padding: theme('spacing.3');
+  display: flex;
+  flex-direction: column;
+  gap: theme('spacing.2');
+}
+
+[data-portal-card] header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: theme('spacing.2');
+}
+
+[data-portal-card] header a {
+  color: theme('colors.text.primary');
+  text-decoration: none;
+}
+
+[data-portal-card] header a:hover strong {
+  color: var(--ui-color-brand-primary);
+  text-decoration: underline;
+}
+
+[data-portal-card-meta] {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: theme('spacing.1') theme('spacing.3');
+  margin: 0;
+  font-size: theme('fontSize.xs');
+  color: theme('colors.text.secondary');
+}
+
+[data-portal-card-meta] dt {
+  color: theme('colors.text.tertiary');
+}
+
+[data-portal-card-meta] dd {
+  margin: 0;
+}
+
+[data-portal-card-actions] {
+  display: flex;
+  gap: theme('spacing.2');
+  margin-top: theme('spacing.1');
+}

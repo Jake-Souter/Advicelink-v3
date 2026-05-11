@@ -131,6 +131,9 @@ importers:
       '@advicelink/branding':
         specifier: workspace:*
         version: link:../../packages/branding
+      '@advicelink/rbac':
+        specifier: workspace:*
+        version: link:../../packages/rbac
       '@advicelink/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
