@@ -6,14 +6,27 @@
  */
 import { z } from 'zod';
 
+// Doppler stores absent values as the empty string; Vite then forwards them
+// untouched on `import.meta.env`. Coerce '' → undefined so `.optional()`
+// actually fires for vars whose backing service hasn't been provisioned yet
+// (Sentry, PostHog at v1). Mirrors the API/workers loaders.
+const optStr = z.preprocess(
+  (v) => (v === '' || v == null ? undefined : v),
+  z.string().min(1).optional(),
+);
+const optUrl = z.preprocess(
+  (v) => (v === '' || v == null ? undefined : v),
+  z.string().url().optional(),
+);
+
 const schema = z.object({
   VITE_API_BASE_URL: z.string().url(),
   VITE_FIREBASE_API_KEY: z.string().min(1),
   VITE_FIREBASE_AUTH_DOMAIN: z.string().min(1),
   VITE_FIREBASE_PROJECT_ID: z.string().min(1),
   VITE_FIREBASE_APP_ID: z.string().min(1),
-  VITE_SENTRY_DSN: z.string().url().optional(),
-  VITE_POSTHOG_KEY: z.string().optional(),
+  VITE_SENTRY_DSN: optUrl,
+  VITE_POSTHOG_KEY: optStr,
   VITE_POSTHOG_HOST: z.string().url().default('https://app.posthog.com'),
   VITE_DEFAULT_TIMEZONE: z.string().default('Australia/Sydney'),
   VITE_GIT_SHA: z.string().default('dev'),

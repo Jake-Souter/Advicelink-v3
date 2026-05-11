@@ -1,5 +1,5 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
-import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
+import { getAuth, type Auth, type DecodedIdToken } from 'firebase-admin/auth';
 
 import { env } from '../config/env.js';
 
@@ -11,13 +11,26 @@ import { env } from '../config/env.js';
  * The App ID is namespaced as 'advicelink-api' so test fixtures (or a
  * future workers process running in the same Node) can co-exist with
  * their own Firebase App without colliding on the default name.
+ *
+ * Initialisation is **lazy**: `cert()` parses the PEM at call time and
+ * crashes on a stub key, which would prevent vitest from even loading
+ * the module graph for integration tests that legitimately plan to
+ * skip. Deferring the call keeps the module import side-effect-free
+ * while still memoising for production hot paths.
  */
 const APP_NAME = 'advicelink-api';
 
+let cachedApp: App | null = null;
+let cachedAuth: Auth | null = null;
+
 function getOrInitApp(): App {
+  if (cachedApp) return cachedApp;
   const existing = getApps().find((app) => app.name === APP_NAME);
-  if (existing) return existing;
-  return initializeApp(
+  if (existing) {
+    cachedApp = existing;
+    return existing;
+  }
+  cachedApp = initializeApp(
     {
       credential: cert({
         projectId: env.FIREBASE_PROJECT_ID,
@@ -28,10 +41,17 @@ function getOrInitApp(): App {
     },
     APP_NAME,
   );
+  return cachedApp;
 }
 
-export const firebaseApp = getOrInitApp();
-export const firebaseAuth = getAuth(firebaseApp);
+export function getFirebaseApp(): App {
+  return getOrInitApp();
+}
+
+export function getFirebaseAuth(): Auth {
+  if (!cachedAuth) cachedAuth = getAuth(getOrInitApp());
+  return cachedAuth;
+}
 
 export type VerifiedFirebaseToken = DecodedIdToken;
 
@@ -59,7 +79,7 @@ export async function verifyIdToken(idToken: string): Promise<VerifiedFirebaseTo
     throw new FirebaseAuthError('missing_token', 'Firebase ID token is required');
   }
   try {
-    return await firebaseAuth.verifyIdToken(idToken, true);
+    return await getFirebaseAuth().verifyIdToken(idToken, true);
   } catch (err: unknown) {
     const code = (err as { code?: string }).code ?? '';
     if (code === 'auth/id-token-expired') {

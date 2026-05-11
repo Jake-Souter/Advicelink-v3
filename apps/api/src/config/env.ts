@@ -160,10 +160,45 @@ const parsed = schema.safeParse({
   REDIS_URL: redisUrl,
 });
 
+// Test-mode escape hatch: vitest may import modules that transitively pull
+// in this loader (e.g. tRPC routers used by integration tests) even when
+// the test itself plans to skip due to missing real env. Crashing at
+// module load makes describe-level `skipIf(!databaseUrl)` unreachable.
+// In test mode we therefore degrade to a stub that lets module graphs
+// load; tests that need a real value still gate on `process.env.*`
+// themselves and skip cleanly.
+const inVitest = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test';
+
 if (!parsed.success) {
   console.error('[env] invalid configuration', parsed.error.flatten().fieldErrors);
-  throw new Error('apps/api: invalid environment configuration');
+  if (!inVitest) {
+    throw new Error('apps/api: invalid environment configuration');
+  }
+  console.warn(
+    '[env] running under vitest with missing/invalid env — supplying stub values; integration tests must skip on missing real env.',
+  );
 }
 
-export const env = parsed.data;
+const stubEnv: z.infer<typeof schema> = {
+  NODE_ENV: 'test',
+  PORT: 4001,
+  LOG_LEVEL: 'fatal',
+  RATE_LIMIT_PER_MIN_DEFAULT: 600,
+  APP_BASE_URL: 'http://localhost:4001',
+  WEB_BASE_URL: 'http://localhost:3000',
+  SUBDOMAIN_ENABLED: false,
+  DATABASE_URL: 'postgres://stub:stub@localhost:5432/stub',
+  REDIS_URL: 'redis://localhost:6379',
+  S3_REGION: 'ap-southeast-2',
+  FIREBASE_PROJECT_ID: 'stub-project',
+  FIREBASE_CLIENT_EMAIL: 'stub@example.test',
+  FIREBASE_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nstub\n-----END PRIVATE KEY-----\n',
+  ANTHROPIC_DEFAULT_MODEL: 'claude-3-7-sonnet-20250219',
+  MICROSOFT_TENANT: 'common',
+  OMNILIFE_GROUP_ID: 'ExampleGroup',
+  POSTHOG_HOST: 'https://app.posthog.com',
+  OTEL_SERVICE_NAME: 'api',
+} as z.infer<typeof schema>;
+
+export const env: z.infer<typeof schema> = parsed.success ? parsed.data : stubEnv;
 export type Env = typeof env;

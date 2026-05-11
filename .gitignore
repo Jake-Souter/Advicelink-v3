@@ -10,6 +10,10 @@ out/
 .turbo/
 *.tsbuildinfo
 
+# Vite leaves stale timestamped config probes when the dev server is killed
+vite.config.ts.timestamp-*.mjs
+vite.config.js.timestamp-*.mjs
+
 # Test outputs
 coverage/
 .nyc_output/
