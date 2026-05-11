@@ -42,11 +42,12 @@ const parsed = schema.safeParse({
 });
 
 if (!parsed.success) {
-  console.error(
-    '[@advicelink/db] env validation failed:\n' +
-      JSON.stringify(parsed.error.flatten().fieldErrors, null, 2),
-  );
-  throw new Error('@advicelink/db requires DATABASE_URL (or DATABASE_PUBLIC_URL) to be set');
+  const fieldErrors = parsed.error.flatten().fieldErrors;
+  console.error('[@advicelink/db] env validation failed:\n' + JSON.stringify(fieldErrors, null, 2));
+  const summary = Object.entries(fieldErrors)
+    .map(([k, v]) => `${k}: ${(v ?? []).join(', ')}`)
+    .join('; ');
+  throw new Error(`@advicelink/db env validation failed — ${summary}`);
 }
 
 export const env = parsed.data;

@@ -5,6 +5,10 @@
   "license": "UNLICENSED",
   "type": "module",
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./trpc": "./src/trpc/router.ts"
+  },
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env.local src/index.ts",
     "build": "tsc -b",
@@ -12,6 +16,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "get-id-token": "tsx src/cli/get-id-token.ts",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
@@ -28,9 +33,12 @@
     "@fastify/helmet": "^13.0.1",
     "@fastify/rate-limit": "^10.2.2",
     "@sentry/node": "^8.47.0",
-    "@trpc/server": "^11.0.0-rc.660",
+    "@trpc/server": "^11.17.0",
+    "drizzle-orm": "^0.38.2",
     "fastify": "^5.2.1",
-    "firebase-admin": "^13.0.2",
+    "firebase-admin": "^13.9.0",
+    "pino": "^9.5.0",
+    "superjson": "^2.2.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {

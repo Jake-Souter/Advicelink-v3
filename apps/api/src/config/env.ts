@@ -93,6 +93,10 @@ const schema = z.object({
     .string()
     .min(1)
     .transform((v) => normalisePem(v)!),
+  // Used only by the get-id-token CLI smoke-test script (read from the
+  // Firebase Web SDK config — public, but lives in Doppler so dev tools
+  // don't need a separate config file).
+  FIREBASE_WEB_API_KEY: optStr,
 
   // Anthropic Claude
   ANTHROPIC_API_KEY: optStr,

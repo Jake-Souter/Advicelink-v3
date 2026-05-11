@@ -2,11 +2,14 @@ import * as Sentry from '@sentry/node';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import Fastify from 'fastify';
 
 import { createLogger } from '@advicelink/logger';
 
 import { env } from './config/env.js';
+import { appRouter, type AppRouter } from './trpc/router.js';
+import { createContextFactory } from './trpc/context.js';
 
 const logger = createLogger({
   service: env.OTEL_SERVICE_NAME,
@@ -27,6 +30,11 @@ async function bootstrap(): Promise<void> {
     logger: false,
     trustProxy: true,
     bodyLimit: 1024 * 1024 * 5, // 5 MB; documents handled out-of-band via S3.
+    // Tenant-scoped tRPC routes use a `/t/:tenantSlug/trpc/...` path
+    // prefix at v1 (subdomain support flips on once Cloudflare lands).
+    // Ignore trailing slashes so curl-friendly URLs work. Fastify 5
+    // moved router options under `routerOptions` (was top-level in v4).
+    routerOptions: { ignoreTrailingSlash: true },
   });
 
   await app.register(helmet, { contentSecurityPolicy: false });
@@ -46,11 +54,59 @@ async function bootstrap(): Promise<void> {
     timestamp: new Date().toISOString(),
   }));
 
-  // tRPC router will mount here in Work Package 3.
-  // app.register(fastifyTRPCPlugin, { prefix: '/trpc', trpcOptions: { router, createContext } });
+  const createContext = createContextFactory({ rootLogger: logger });
 
-  // Webhooks are the only non-tRPC HTTP endpoints (REBUILD_PLAN §3).
-  // app.register(docusignWebhookRoutes, { prefix: '/webhooks/docusign' });
+  // No-tenant entry point — used for `health.*` and any pre-auth flow.
+  await app.register(fastifyTRPCPlugin, {
+    prefix: '/trpc',
+    trpcOptions: {
+      router: appRouter,
+      createContext,
+      onError({ error, path, type, ctx }) {
+        logger.error(
+          {
+            err: error,
+            trpcPath: path,
+            trpcType: type,
+            reqId: ctx?.reqId,
+          },
+          'tRPC error',
+        );
+        if (env.SENTRY_DSN && error.code === 'INTERNAL_SERVER_ERROR') {
+          Sentry.captureException(error, { extra: { trpcPath: path, trpcType: type } });
+        }
+      },
+    } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
+  });
+
+  // Tenant-scoped entry point — every authed procedure lives under here.
+  // `tenantSlug` is resolved by `createContext` reading the request URL.
+  await app.register(fastifyTRPCPlugin, {
+    prefix: '/t/:tenantSlug/trpc',
+    trpcOptions: {
+      router: appRouter,
+      createContext,
+      onError({ error, path, type, ctx }) {
+        logger.error(
+          {
+            err: error,
+            trpcPath: path,
+            trpcType: type,
+            tenantSlug: ctx?.tenantSlug,
+            reqId: ctx?.reqId,
+          },
+          'tenant-scoped tRPC error',
+        );
+        if (env.SENTRY_DSN && error.code === 'INTERNAL_SERVER_ERROR') {
+          Sentry.captureException(error, {
+            extra: { trpcPath: path, trpcType: type, tenantSlug: ctx?.tenantSlug },
+          });
+        }
+      },
+    } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
+  });
+
+  // Webhooks land under `/webhooks/*` from WP-10 onwards (REBUILD_PLAN §3).
 
   try {
     await app.listen({ host: '0.0.0.0', port: env.PORT });
