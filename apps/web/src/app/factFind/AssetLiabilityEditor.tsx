@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { ZodType, ZodTypeDef } from 'zod';
 
 import type { AssetItem, Frequency } from '@advicelink/schemas';
+import { Cluster, Grid, Input, Select, Stack, YesNoSelect } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { ItemList } from '../forms/ItemList';
@@ -77,9 +78,9 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
   }
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>{heading}</h2>
-      <p style={{ color: 'var(--text-tertiary, #98A2B3)' }}>{description}</p>
+      <p data-fact-find-description>{description}</p>
 
       <ItemList
         label={itemListLabel}
@@ -90,7 +91,7 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
         disabled={isLocked}
         emptyHint="No items yet."
         summary={
-          <div data-totals>
+          <Cluster gap={6} data-fact-find-totals>
             <span>
               Total assets: <strong>${(form.draft.totalAssets ?? 0).toLocaleString()}</strong>
             </span>
@@ -107,15 +108,15 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                 ).toLocaleString()}
               </strong>
             </span>
-          </div>
+          </Cluster>
         }
         renderRow={(item, index, patch) => {
           const hasLoan = (item.amountOwing ?? 0) > 0;
           return (
-            <>
-              <div data-row-grid="3">
+            <Stack gap={3}>
+              <Grid cols={3} gap={4}>
                 <Field label="Name" error={form.errors[`items.${index}.name`]}>
-                  <input
+                  <Input
                     type="text"
                     value={item.name ?? ''}
                     onChange={(e) =>
@@ -125,7 +126,7 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                   />
                 </Field>
                 <Field label="Asset value (AUD)" error={form.errors[`items.${index}.assetValue`]}>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     step={100}
@@ -139,7 +140,7 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                   />
                 </Field>
                 <Field label="Amount owing (AUD)" error={form.errors[`items.${index}.amountOwing`]}>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     step={100}
@@ -152,25 +153,23 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                     disabled={isLocked}
                   />
                 </Field>
-              </div>
-              <div data-row-grid="3" style={{ marginTop: '0.5rem' }}>
+              </Grid>
+              <Grid cols={3} gap={4}>
                 <Field label="Principal place of residence">
-                  <select
-                    value={item.isPpor ? 'yes' : 'no'}
-                    onChange={(e) => patch({ isPpor: e.target.value === 'yes' })}
+                  <YesNoSelect
+                    value={item.isPpor}
+                    onChange={(v) => patch({ isPpor: v ?? false })}
                     disabled={isLocked}
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
+                    clearable={false}
+                  />
                 </Field>
-              </div>
+              </Grid>
 
               {hasLoan ? (
                 <>
-                  <div data-row-grid="3" style={{ marginTop: '0.75rem' }}>
+                  <Grid cols={3} gap={4}>
                     <Field label="Lender" error={form.errors[`items.${index}.lender`]}>
-                      <input
+                      <Input
                         type="text"
                         value={item.lender ?? ''}
                         onChange={(e) =>
@@ -183,7 +182,7 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                       label="Interest rate (%)"
                       error={form.errors[`items.${index}.interestRate`]}
                     >
-                      <input
+                      <Input
                         type="number"
                         min={0}
                         max={100}
@@ -202,7 +201,7 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                       label="Loan term (years)"
                       error={form.errors[`items.${index}.loanTermYears`]}
                     >
-                      <input
+                      <Input
                         type="number"
                         min={0}
                         max={60}
@@ -216,13 +215,13 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                         disabled={isLocked}
                       />
                     </Field>
-                  </div>
-                  <div data-row-grid="3" style={{ marginTop: '0.5rem' }}>
+                  </Grid>
+                  <Grid cols={3} gap={4}>
                     <Field
                       label="Repayment amount"
                       error={form.errors[`items.${index}.repaymentAmount`]}
                     >
-                      <input
+                      <Input
                         type="number"
                         min={0}
                         step={1}
@@ -240,26 +239,20 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                       label="Repayment frequency"
                       error={form.errors[`items.${index}.repaymentFrequency`]}
                     >
-                      <select
-                        value={item.repaymentFrequency ?? ''}
-                        onChange={(e) =>
+                      <Select
+                        value={item.repaymentFrequency ?? undefined}
+                        onValueChange={(v) =>
                           patch({
-                            repaymentFrequency:
-                              e.target.value === '' ? undefined : (e.target.value as Frequency),
+                            repaymentFrequency: (v ?? undefined) as Frequency | undefined,
                           })
                         }
                         disabled={isLocked}
-                      >
-                        <option value="">—</option>
-                        {FREQUENCIES.map((f) => (
-                          <option key={f} value={f}>
-                            {f}
-                          </option>
-                        ))}
-                      </select>
+                        clearable
+                        options={FREQUENCIES.map((f) => ({ value: f, label: f }))}
+                      />
                     </Field>
                     <Field label="Loan start date" error={form.errors[`items.${index}.startDate`]}>
-                      <input
+                      <Input
                         type="date"
                         value={item.startDate ?? ''}
                         onChange={(e) =>
@@ -270,15 +263,15 @@ export function AssetLiabilityEditor<T extends AssetsLikeShape>({
                         disabled={isLocked}
                       />
                     </Field>
-                  </div>
+                  </Grid>
                 </>
               ) : null}
-            </>
+            </Stack>
           );
         }}
       />
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }

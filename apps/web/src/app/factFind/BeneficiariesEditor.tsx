@@ -1,6 +1,7 @@
 import { useMemo, type ReactElement } from 'react';
 
 import { beneficiariesSchema, type BeneficiaryItem, type Beneficiaries } from '@advicelink/schemas';
+import { Cluster, Grid, Input, Select, Stack, StatusBadge } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { ItemList } from '../forms/ItemList';
@@ -16,6 +17,22 @@ import { useDraftSection } from '../forms/useDraftSection';
  * insist on == 100% per fund. The editor surfaces a per-fund total
  * chip so the adviser can see the gap immediately.
  */
+
+const BINDING_TYPE_OPTIONS: ReadonlyArray<{
+  value: NonNullable<BeneficiaryItem['bindingType']>;
+  label: string;
+}> = [
+  { value: 'Binding', label: 'Binding' },
+  { value: 'Non-binding', label: 'Non-binding' },
+];
+
+const LAPSING_TYPE_OPTIONS: ReadonlyArray<{
+  value: NonNullable<BeneficiaryItem['lapsingType']>;
+  label: string;
+}> = [
+  { value: 'Lapsing', label: 'Lapsing' },
+  { value: 'Non-lapsing', label: 'Non-lapsing' },
+];
 
 export interface BeneficiariesEditorProps {
   serverValue: unknown;
@@ -57,9 +74,9 @@ export function BeneficiariesEditor({
   }, [form.draft.items]);
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>Beneficiaries</h2>
-      <p style={{ color: 'var(--text-tertiary, #98A2B3)' }}>
+      <p data-fact-find-description>
         Nominees per fund or policy. Per-fund allocations must sum to 100% before the Fact Find can
         be locked.
       </p>
@@ -74,30 +91,27 @@ export function BeneficiariesEditor({
         emptyHint="No beneficiaries captured yet."
         summary={
           totalsByFund.size === 0 ? null : (
-            <div data-totals style={{ flexWrap: 'wrap' }}>
-              {[...totalsByFund.entries()].map(([fund, total]) => {
-                const tone = total === 100 ? 'accent' : undefined;
-                return (
-                  <span key={fund}>
-                    {fund}:{' '}
-                    <strong data-chip data-tone={tone}>
-                      {total.toFixed(2)}%
-                    </strong>
-                  </span>
-                );
-              })}
-            </div>
+            <Cluster gap={3} data-fact-find-totals>
+              {[...totalsByFund.entries()].map(([fund, total]) => (
+                <Cluster key={fund} gap={2}>
+                  <span>{fund}:</span>
+                  <StatusBadge tone={total === 100 ? 'success' : 'warning'}>
+                    {total.toFixed(2)}%
+                  </StatusBadge>
+                </Cluster>
+              ))}
+            </Cluster>
           )
         }
         renderRow={(item, index, patch) => (
-          <>
-            <div data-row-grid>
+          <Stack gap={3}>
+            <Grid cols={2} gap={4}>
               <Field
                 label="Fund or policy"
                 required
                 error={form.errors[`items.${index}.fundOrPolicy`]}
               >
-                <input
+                <Input
                   type="text"
                   value={item.fundOrPolicy}
                   onChange={(e) => patch({ fundOrPolicy: e.target.value })}
@@ -109,7 +123,7 @@ export function BeneficiariesEditor({
                 required
                 error={form.errors[`items.${index}.percentage`]}
               >
-                <input
+                <Input
                   type="number"
                   min={0}
                   max={100}
@@ -121,10 +135,10 @@ export function BeneficiariesEditor({
                   disabled={isLocked}
                 />
               </Field>
-            </div>
-            <div data-row-grid="3" style={{ marginTop: '0.5rem' }}>
+            </Grid>
+            <Grid cols={3} gap={4}>
               <Field label="First name" error={form.errors[`items.${index}.firstName`]}>
-                <input
+                <Input
                   type="text"
                   value={item.firstName ?? ''}
                   onChange={(e) =>
@@ -134,7 +148,7 @@ export function BeneficiariesEditor({
                 />
               </Field>
               <Field label="Middle name" error={form.errors[`items.${index}.middleName`]}>
-                <input
+                <Input
                   type="text"
                   value={item.middleName ?? ''}
                   onChange={(e) =>
@@ -144,7 +158,7 @@ export function BeneficiariesEditor({
                 />
               </Field>
               <Field label="Surname" error={form.errors[`items.${index}.surname`]}>
-                <input
+                <Input
                   type="text"
                   value={item.surname ?? ''}
                   onChange={(e) =>
@@ -153,10 +167,10 @@ export function BeneficiariesEditor({
                   disabled={isLocked}
                 />
               </Field>
-            </div>
-            <div data-row-grid="3" style={{ marginTop: '0.5rem' }}>
+            </Grid>
+            <Grid cols={3} gap={4}>
               <Field label="Date of birth" error={form.errors[`items.${index}.dateOfBirth`]}>
-                <input
+                <Input
                   type="date"
                   value={item.dateOfBirth ?? ''}
                   onChange={(e) =>
@@ -168,47 +182,33 @@ export function BeneficiariesEditor({
                 />
               </Field>
               <Field label="Binding type" error={form.errors[`items.${index}.bindingType`]}>
-                <select
-                  value={item.bindingType ?? ''}
-                  onChange={(e) =>
-                    patch({
-                      bindingType:
-                        e.target.value === ''
-                          ? undefined
-                          : (e.target.value as BeneficiaryItem['bindingType']),
-                    })
+                <Select
+                  value={item.bindingType ?? undefined}
+                  onValueChange={(v) =>
+                    patch({ bindingType: (v ?? undefined) as BeneficiaryItem['bindingType'] })
                   }
                   disabled={isLocked}
-                >
-                  <option value="">—</option>
-                  <option value="Binding">Binding</option>
-                  <option value="Non-binding">Non-binding</option>
-                </select>
+                  clearable
+                  options={BINDING_TYPE_OPTIONS}
+                />
               </Field>
               <Field label="Lapsing type" error={form.errors[`items.${index}.lapsingType`]}>
-                <select
-                  value={item.lapsingType ?? ''}
-                  onChange={(e) =>
-                    patch({
-                      lapsingType:
-                        e.target.value === ''
-                          ? undefined
-                          : (e.target.value as BeneficiaryItem['lapsingType']),
-                    })
+                <Select
+                  value={item.lapsingType ?? undefined}
+                  onValueChange={(v) =>
+                    patch({ lapsingType: (v ?? undefined) as BeneficiaryItem['lapsingType'] })
                   }
                   disabled={isLocked}
-                >
-                  <option value="">—</option>
-                  <option value="Lapsing">Lapsing</option>
-                  <option value="Non-lapsing">Non-lapsing</option>
-                </select>
+                  clearable
+                  options={LAPSING_TYPE_OPTIONS}
+                />
               </Field>
-            </div>
-          </>
+            </Grid>
+          </Stack>
         )}
       />
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }

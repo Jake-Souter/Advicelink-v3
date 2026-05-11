@@ -6,6 +6,7 @@ import {
   type IncomeItem,
   type IncomeType,
 } from '@advicelink/schemas';
+import { Cluster, Grid, Input, Select, Stack, YesNoSelect } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { ItemList } from '../forms/ItemList';
@@ -69,9 +70,9 @@ export function FinancialEditor({
   }
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>Income</h2>
-      <p style={{ color: 'var(--text-tertiary, #98A2B3)' }}>
+      <p data-fact-find-description>
         One row per income source. SG fields apply to salary-style income only.
       </p>
 
@@ -84,7 +85,7 @@ export function FinancialEditor({
         disabled={isLocked}
         emptyHint="No income sources yet. Add one to start."
         summary={
-          <div data-totals>
+          <Cluster gap={6} data-fact-find-totals>
             <span>
               Total income (annual):{' '}
               <strong>${(form.draft.totalIncomeAnnual ?? 0).toLocaleString()}</strong>
@@ -93,26 +94,21 @@ export function FinancialEditor({
               Total SG (annual):{' '}
               <strong>${(form.draft.totalSgAnnual ?? 0).toLocaleString()}</strong>
             </span>
-          </div>
+          </Cluster>
         }
         renderRow={(item, index, patch) => (
-          <>
-            <div data-row-grid="3">
+          <Stack gap={3}>
+            <Grid cols={3} gap={4}>
               <Field label="Type" error={form.errors[`incomes.${index}.incomeType`]}>
-                <select
+                <Select
                   value={item.incomeType}
-                  onChange={(e) => patch({ incomeType: e.target.value as IncomeType })}
+                  onValueChange={(v) => patch({ incomeType: v as IncomeType })}
                   disabled={isLocked}
-                >
-                  {INCOME_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  options={INCOME_TYPES.map((t) => ({ value: t, label: t }))}
+                />
               </Field>
               <Field label="Gross annual (AUD)" error={form.errors[`incomes.${index}.grossAnnual`]}>
-                <input
+                <Input
                   type="number"
                   min={0}
                   step={100}
@@ -124,31 +120,29 @@ export function FinancialEditor({
                 />
               </Field>
               <Field label="SG eligible">
-                <select
-                  value={item.sgEligible ? 'yes' : 'no'}
-                  onChange={(e) => {
-                    const next = e.target.value === 'yes';
+                <YesNoSelect
+                  value={item.sgEligible}
+                  clearable={false}
+                  onChange={(next) => {
+                    const isSg = next ?? false;
                     patch({
-                      sgEligible: next,
-                      superGuaranteePercent: next ? (item.superGuaranteePercent ?? 12) : undefined,
-                      superGuaranteeDollars: next ? item.superGuaranteeDollars : undefined,
+                      sgEligible: isSg,
+                      superGuaranteePercent: isSg ? (item.superGuaranteePercent ?? 12) : undefined,
+                      superGuaranteeDollars: isSg ? item.superGuaranteeDollars : undefined,
                     });
                   }}
                   disabled={isLocked}
-                >
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
+                />
               </Field>
-            </div>
+            </Grid>
             {item.sgEligible ? (
-              <div data-row-grid style={{ marginTop: '0.5rem' }}>
+              <Grid cols={2} gap={4}>
                 <Field
                   label="SG %"
                   help="Default 12% (FY2025-26)"
                   error={form.errors[`incomes.${index}.superGuaranteePercent`]}
                 >
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     max={100}
@@ -164,15 +158,15 @@ export function FinancialEditor({
                   />
                 </Field>
                 <Field label="SG $ (derived)">
-                  <input type="number" value={item.superGuaranteeDollars ?? ''} disabled readOnly />
+                  <Input type="number" value={item.superGuaranteeDollars ?? ''} disabled readOnly />
                 </Field>
-              </div>
+              </Grid>
             ) : null}
-          </>
+          </Stack>
         )}
       />
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }

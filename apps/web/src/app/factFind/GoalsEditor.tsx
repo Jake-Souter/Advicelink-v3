@@ -2,20 +2,22 @@ import { useState, type ReactElement } from 'react';
 
 import { goalsSchema, type Goals } from '@advicelink/schemas';
 import type { PromptKey } from '@advicelink/ai';
+import { Alert, Button, Cluster, Grid, Input, Stack, Surface, Textarea } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
+import { SaveBar } from '../forms/SaveBar';
 import { useDraftSection } from '../forms/useDraftSection';
 import { trpc } from '../../lib/trpc';
 
 /**
  * Goals editor with the AI assist surface wired in.
  *
- * Each AI-assistable question is wrapped in a [data-question-block]
- * with a "Suggest" button next to it. Clicking the button posts the
- * client display name + a small slice of facts to
- * `factFind.aiAssist`, which redacts PII, calls Anthropic (or the
- * stub adapter), and returns a suggestion string. The user can
- * accept (writes the suggestion into the textarea) or dismiss it.
+ * Each AI-assistable question pairs a textarea with a "Suggest"
+ * button. Clicking the button posts the client display name + a
+ * small slice of facts to `factFind.aiAssist`, which redacts PII,
+ * calls Anthropic (or the stub adapter), and returns a suggestion
+ * string. The user can accept (writes the suggestion into the
+ * textarea) or dismiss it.
  *
  * The 5 AI-assistable goals questions map 1:1 to prompt keys in
  * `@advicelink/ai`. The 2 remaining goals questions (super lump
@@ -90,12 +92,12 @@ export function GoalsEditor({
   }
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>Goals</h2>
 
-      <div data-row-grid style={{ marginBottom: '1.5rem' }}>
+      <Grid cols={2} gap={4}>
         <Field label="Desired retirement age" error={form.errors['desiredRetirementAge']}>
-          <input
+          <Input
             type="number"
             min={40}
             max={100}
@@ -113,7 +115,7 @@ export function GoalsEditor({
           label="Desired weekly retirement income (AUD)"
           error={form.errors['desiredRetirementIncomeWeekly']}
         >
-          <input
+          <Input
             type="number"
             min={0}
             value={form.draft.desiredRetirementIncomeWeekly ?? ''}
@@ -126,7 +128,7 @@ export function GoalsEditor({
             disabled={isLocked}
           />
         </Field>
-      </div>
+      </Grid>
 
       {QUESTIONS.map((q) => (
         <GoalQuestionBlock
@@ -141,59 +143,26 @@ export function GoalsEditor({
         />
       ))}
 
-      <div data-question-block style={{ marginTop: '1rem' }}>
-        <Field label="Super lump sum strategy notes (no AI suggest)">
-          <textarea
-            value={form.draft.superLumpSum ?? ''}
-            onChange={(e) => patch('superLumpSum', e.target.value)}
-            disabled={isLocked}
-            rows={4}
-          />
-        </Field>
-      </div>
+      <Field label="Super lump sum strategy notes (no AI suggest)">
+        <Textarea
+          value={form.draft.superLumpSum ?? ''}
+          onChange={(e) => patch('superLumpSum', e.target.value)}
+          disabled={isLocked}
+          rows={4}
+        />
+      </Field>
 
-      <div data-question-block style={{ marginTop: '1rem' }}>
-        <Field label="Previous adviser (if any)">
-          <textarea
-            value={form.draft.previousAdviser ?? ''}
-            onChange={(e) => patch('previousAdviser', e.target.value)}
-            disabled={isLocked}
-            rows={3}
-          />
-        </Field>
-      </div>
+      <Field label="Previous adviser (if any)">
+        <Textarea
+          value={form.draft.previousAdviser ?? ''}
+          onChange={(e) => patch('previousAdviser', e.target.value)}
+          disabled={isLocked}
+          rows={3}
+        />
+      </Field>
 
-      {form.saveError ? (
-        <p data-banner data-tone="danger" role="alert" style={{ marginTop: '1rem' }}>
-          {form.saveError}
-        </p>
-      ) : null}
-      {form.saveSuccessAt && !form.isDirty ? (
-        <p data-banner data-tone="success" style={{ marginTop: '1rem' }}>
-          Saved.
-        </p>
-      ) : null}
-      <div data-form-actions>
-        <button
-          type="button"
-          data-button="secondary"
-          onClick={form.reset}
-          disabled={!form.isDirty || form.isSaving}
-        >
-          Reset
-        </button>
-        <button
-          type="button"
-          data-button="primary"
-          onClick={() => {
-            void form.save();
-          }}
-          disabled={!form.isDirty || form.isSaving}
-        >
-          {form.isSaving ? 'Saving…' : 'Save section'}
-        </button>
-      </div>
-    </section>
+      <SaveBar form={form} />
+    </Stack>
   );
 }
 
@@ -242,61 +211,58 @@ function GoalQuestionBlock({
   }
 
   return (
-    <div data-question-block style={{ marginTop: '1rem' }}>
+    <Stack gap={3}>
       <Field label={question.label}>
-        <textarea
+        <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           rows={4}
         />
       </Field>
-      <div data-question-actions>
-        <button
+      <Cluster>
+        <Button
           type="button"
-          data-button="ghost"
+          tone="ghost"
           onClick={handleSuggest}
           disabled={disabled || assist.isPending}
         >
           {assist.isPending ? 'Asking AI…' : '✨ Suggest'}
-        </button>
-      </div>
+        </Button>
+      </Cluster>
       {assist.isError ? (
-        <p data-banner data-tone="danger" role="alert">
-          AI assist failed: {assist.error.message}
-        </p>
+        <Alert tone="danger">AI assist failed: {assist.error.message}</Alert>
       ) : null}
       {suggestion ? (
-        <div data-ai-suggestion>
-          <div>{suggestion}</div>
-          {costInfo ? (
-            <div data-ai-suggestion-meta>
-              {costInfo.costCents}¢ · {costInfo.latencyMs}ms
-            </div>
-          ) : null}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              data-button="primary"
-              onClick={() => {
-                onChange(suggestion);
-                setSuggestion(null);
-              }}
-            >
-              Accept
-            </button>
-            <button
-              type="button"
-              data-button="ghost"
-              onClick={() => {
-                setSuggestion(null);
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
+        <Surface
+          title="Suggested answer"
+          description={costInfo ? `${costInfo.costCents}¢ · ${costInfo.latencyMs}ms` : undefined}
+          actions={
+            <Cluster gap={2}>
+              <Button
+                type="button"
+                onClick={() => {
+                  onChange(suggestion);
+                  setSuggestion(null);
+                }}
+              >
+                Accept
+              </Button>
+              <Button
+                type="button"
+                tone="ghost"
+                onClick={() => {
+                  setSuggestion(null);
+                }}
+              >
+                Dismiss
+              </Button>
+            </Cluster>
+          }
+        >
+          {suggestion}
+        </Surface>
       ) : null}
-    </div>
+    </Stack>
   );
 }

@@ -7,6 +7,7 @@ import {
   type RiskProfile,
   type RiskProfileQuestionKey,
 } from '@advicelink/schemas';
+import { Cluster, RadioGroup, Stack, StatusBadge, Textarea } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { SaveBar } from '../forms/SaveBar';
@@ -84,56 +85,51 @@ export function RiskProfileEditor({
   }
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>Risk profile</h2>
-      <p style={{ color: 'var(--text-tertiary, #98A2B3)' }}>
+      <p data-fact-find-description>
         Five questions. The score and profile band are computed server-side using the{' '}
         <code>{DEFAULT_RISK_PROFILE_SCORING_MAP.version}</code> scoring map.
       </p>
 
       {form.draft.riskScore != null || form.draft.riskProfile != null ? (
-        <div data-totals style={{ marginBottom: '1rem' }}>
+        <Cluster gap={6} data-fact-find-totals>
           <span>
             Score: <strong>{form.draft.riskScore ?? '—'} / 25</strong>
           </span>
-          <span>
-            Band:{' '}
-            <strong data-chip data-tone="accent">
-              {form.draft.riskProfile ?? '—'}
-            </strong>
-          </span>
-        </div>
+          <Cluster gap={2}>
+            <span>Band:</span>
+            <StatusBadge tone="info">{form.draft.riskProfile ?? '—'}</StatusBadge>
+          </Cluster>
+        </Cluster>
       ) : null}
 
       {RISK_PROFILE_QUESTION_KEYS.map((qKey) => {
         const answers = DEFAULT_RISK_PROFILE_SCORING_MAP.questions[qKey];
-        const selected = (form.draft[qKey] as string | undefined) ?? '';
+        const selected = (form.draft[qKey] as string | undefined) ?? undefined;
         return (
           <Field key={qKey} label={QUESTION_LABELS[qKey]} error={form.errors[qKey]}>
-            <div data-radio-group>
-              {Object.entries(answers).map(([answerKey, points]) => (
-                <label key={answerKey} data-radio>
-                  <input
-                    type="radio"
-                    name={qKey}
-                    value={answerKey}
-                    checked={selected === answerKey}
-                    onChange={(e) => patch(qKey, e.target.value)}
-                    disabled={isLocked}
-                  />
+            <RadioGroup
+              name={qKey}
+              value={selected}
+              onValueChange={(v) => patch(qKey, v)}
+              disabled={isLocked}
+              options={Object.entries(answers).map(([answerKey, points]) => ({
+                value: answerKey,
+                label: (
                   <span>
                     {ANSWER_LABELS[answerKey] ?? answerKey}{' '}
-                    <span data-radio-points>({points} pt)</span>
+                    <span data-fact-find-points>({points} pt)</span>
                   </span>
-                </label>
-              ))}
-            </div>
+                ),
+              }))}
+            />
           </Field>
         );
       })}
 
       <Field label="Adviser notes" error={form.errors['notes']}>
-        <textarea
+        <Textarea
           rows={3}
           value={form.draft.notes ?? ''}
           onChange={(e) => patch('notes', e.target.value === '' ? undefined : e.target.value)}
@@ -142,6 +138,6 @@ export function RiskProfileEditor({
       </Field>
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }

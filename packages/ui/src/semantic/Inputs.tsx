@@ -41,11 +41,21 @@ export interface SelectOption {
 }
 
 export interface SelectProps {
+  /**
+   * Current value. `undefined` (or empty string) renders the placeholder.
+   * Pass `clearable` if the user must be able to return to "unset" once
+   * they've picked something — the wrapper renders a "—" entry that
+   * resolves back to `undefined` when chosen.
+   */
   value?: string;
   defaultValue?: string;
-  onValueChange?: (value: string) => void;
+  onValueChange?: (value: string | undefined) => void;
   options: ReadonlyArray<SelectOption>;
   placeholder?: string;
+  /** Add a leading "—" entry that clears the selection. */
+  clearable?: boolean;
+  /** Custom label for the clear entry. Defaults to "—". */
+  clearLabel?: string;
   disabled?: boolean;
   id?: string;
   name?: string;
@@ -54,31 +64,45 @@ export interface SelectProps {
   className?: string;
 }
 
+const CLEAR_SENTINEL = '__advicelink_clear__';
+
 export function Select({
   value,
   defaultValue,
   onValueChange,
   options,
   placeholder,
+  clearable = false,
+  clearLabel = '—',
   disabled,
   id,
   name,
   className,
   ...rest
 }: SelectProps): React.ReactElement {
+  const handleChange = (next: string): void => {
+    if (next === CLEAR_SENTINEL) {
+      onValueChange?.(undefined);
+      return;
+    }
+    onValueChange?.(next);
+  };
+  // shadcn Select doesn't accept '' as a value; surface undefined for both.
+  const normalised = value === '' ? undefined : value;
   return (
     <ShadcnSelect
-      value={value}
+      value={normalised}
       defaultValue={defaultValue}
-      onValueChange={onValueChange}
+      onValueChange={handleChange}
       disabled={disabled}
       name={name}
     >
       <SelectTrigger id={id} className={className} aria-invalid={rest['aria-invalid']}>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder ?? '—'} />
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
+          {clearable ? <SelectItem value={CLEAR_SENTINEL}>{clearLabel}</SelectItem> : null}
           {options.map((opt) => (
             <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>
               {opt.label}
@@ -87,5 +111,59 @@ export function Select({
         </SelectGroup>
       </SelectContent>
     </ShadcnSelect>
+  );
+}
+
+/**
+ * Tristate Yes / No / unset selector. Wraps `Select` with the
+ * boolean-or-undefined shape every Fact Find editor uses for
+ * disclosure-style questions ("Has a current will", "Works with
+ * hazardous materials"). Pass `clearable={false}` if the value is
+ * required and you want to suppress the leading "—" entry.
+ */
+export interface YesNoSelectProps {
+  value: boolean | undefined;
+  onChange: (next: boolean | undefined) => void;
+  disabled?: boolean;
+  clearable?: boolean;
+  /** Override the displayed labels (e.g. "True" / "False"). */
+  yesLabel?: string;
+  noLabel?: string;
+  id?: string;
+  'aria-invalid'?: boolean;
+  className?: string;
+}
+
+export function YesNoSelect({
+  value,
+  onChange,
+  disabled,
+  clearable = true,
+  yesLabel = 'Yes',
+  noLabel = 'No',
+  id,
+  className,
+  ...rest
+}: YesNoSelectProps): React.ReactElement {
+  return (
+    <Select
+      id={id}
+      className={className}
+      aria-invalid={rest['aria-invalid']}
+      value={value === undefined ? undefined : value ? 'yes' : 'no'}
+      onValueChange={(next) => {
+        if (next === undefined) {
+          onChange(undefined);
+        } else {
+          onChange(next === 'yes');
+        }
+      }}
+      clearable={clearable}
+      disabled={disabled}
+      options={[
+        { value: 'yes', label: yesLabel },
+        { value: 'no', label: noLabel },
+      ]}
+    />
   );
 }

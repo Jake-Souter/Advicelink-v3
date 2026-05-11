@@ -46,7 +46,15 @@ export { Alert } from './semantic/Alert.js';
 export type { AlertProps, AlertTone } from './semantic/Alert.js';
 export { Field, FieldGroup, FieldSet } from './semantic/Field.js';
 export type { FieldProps } from './semantic/Field.js';
-export { Input, Textarea, Select } from './semantic/Inputs.js';
-export type { InputProps, TextareaProps, SelectProps, SelectOption } from './semantic/Inputs.js';
+export { Input, Textarea, Select, YesNoSelect } from './semantic/Inputs.js';
+export type {
+  InputProps,
+  TextareaProps,
+  SelectProps,
+  SelectOption,
+  YesNoSelectProps,
+} from './semantic/Inputs.js';
+export { RadioGroup, Checkbox } from './semantic/Choice.js';
+export type { RadioGroupProps, RadioOption, CheckboxProps } from './semantic/Choice.js';
 export { Bounded } from './primitives/layout.js';
 export type { BoundedProps } from './primitives/layout.js';

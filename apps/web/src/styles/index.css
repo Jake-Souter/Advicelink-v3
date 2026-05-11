@@ -43,8 +43,13 @@ body {
 /*
  * `[data-page]` selectors keep page-level layout out of the route TSX
  * files (REBUILD_PLAN §11.6.1 — routes are pure layout composition).
- * Every value below is sourced from the design token preset so the
- * "no raw hex/px outside tokens" rule (.cursor/rules) holds.
+ * Each rule below is sourced from the token preset; no raw hex/px outside
+ * tokens. Most of the legacy `[data-button]` / `[data-banner]` /
+ * `[data-form-field]` markup has been retired in the shadcn migration —
+ * what remains here is the small set of structural hooks that still own
+ * page-level chrome (the splash + login backdrops, the tenant
+ * loading/error fallbacks, and the few PortalKanban + Fact Find inline
+ * styling hooks left over from the editor refactor).
  */
 
 [data-page='splash'] {
@@ -67,130 +72,6 @@ body {
       var(--ui-color-brand-primary-subtle),
       var(--color-surface-base) 70%
     );
-}
-
-[data-login-card] {
-  width: min(var(--width-loginCard), 100%);
-  background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-8);
-  box-shadow: var(--shadow-lg);
-}
-
-[data-login-header] h1 {
-  font-family: var(--font-display);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--text-xl);
-  color: var(--color-text-primary);
-  text-align: center;
-}
-
-[data-field] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-1);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
-[data-field] input {
-  font: inherit;
-  color: var(--color-text-primary);
-  background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-2) var(--spacing-3);
-  outline: none;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-
-[data-field] input:focus-visible {
-  border-color: var(--ui-color-brand-primary);
-  box-shadow: 0 0 0 3px var(--ui-color-brand-primary-subtle);
-}
-
-[data-field] input:disabled {
-  background-color: var(--color-surface-sunken);
-  color: var(--color-text-tertiary);
-}
-
-[data-button='primary'] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-2);
-  background-color: var(--ui-color-brand-primary);
-  color: var(--ui-color-brand-primary-contrast);
-  font-weight: var(--font-weight-semibold);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  padding: var(--spacing-3) var(--spacing-4);
-  cursor: pointer;
-  transition: background-color 120ms ease;
-}
-
-[data-button='primary']:hover:not(:disabled) {
-  background-color: var(--ui-color-brand-primary-hover);
-}
-
-[data-button='primary']:active:not(:disabled) {
-  background-color: var(--ui-color-brand-primary-pressed);
-}
-
-[data-button='primary']:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-[data-button='secondary'] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-2);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-3) var(--spacing-4);
-  cursor: pointer;
-  transition: background-color 120ms ease;
-}
-
-[data-button='secondary']:hover:not(:disabled) {
-  background-color: var(--color-surface-sunken);
-}
-
-[data-button='secondary']:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-[data-login-divider] {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-3);
-  color: var(--color-text-tertiary);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-[data-login-divider]::before,
-[data-login-divider]::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background-color: var(--color-border-subtle);
-}
-
-[data-login-error] {
-  background-color: var(--color-state-dangerSurface);
-  color: var(--color-state-danger);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-2) var(--spacing-3);
-  font-size: var(--text-sm);
 }
 
 [data-page='home'] {
@@ -217,440 +98,19 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────────
- *  WP-6.4 — Clients + Fact Find UI
- *  Page-level layout for /t/$tenantSlug/clients and the Fact Find
- *  wizard. All values pull from the tokens preset; the strict
- *  "no raw hex/px outside tokens" rule still holds.
+ *  Portal kanban — bucket cards & per-row metadata
+ *  The bucket containers themselves are rendered through `<Surface>`
+ *  in `apps/web/src/app/portals/PortalKanban.tsx`; what survives here
+ *  is the row-level structure (`<li>` with title link + dl/dt/dd
+ *  metadata grid) the shadcn atoms don't model.
  * ────────────────────────────────────────────────────────────────── */
-
-[data-page='app-shell'] {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
-  background-color: var(--color-surface-base);
-}
-
-[data-app-sidebar] {
-  background-color: var(--color-surface-raised);
-  border-right: 1px solid var(--color-border-subtle);
-  padding: var(--spacing-6) var(--spacing-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-6);
-}
-
-[data-app-sidebar] h2 {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-tertiary);
-  font-weight: var(--font-weight-semibold);
-}
-
-[data-app-sidebar] nav a {
-  display: block;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-[data-app-sidebar] nav a:hover {
-  background-color: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-}
-
-[data-app-sidebar] nav a[data-active='true'] {
-  background-color: var(--ui-color-brand-primary-subtle);
-  color: var(--ui-color-brand-primary);
-}
-
-[data-app-main] {
-  padding: var(--spacing-8);
-  overflow-y: auto;
-}
-
-[data-app-topbar] {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-6);
-}
-
-[data-app-topbar] h1 {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-[data-card] {
-  background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-6);
-  box-shadow: var(--shadow-sm);
-}
-
-[data-table] {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-[data-table] th,
-[data-table] td {
-  text-align: left;
-  padding: var(--spacing-3);
-  border-bottom: 1px solid var(--color-border-subtle);
-  font-size: var(--text-sm);
-}
-
-[data-table] th {
-  color: var(--color-text-tertiary);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-}
-
-[data-table] tr:hover td {
-  background-color: var(--color-surface-sunken);
-}
-
-[data-chip] {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--spacing-1) var(--spacing-2);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-  background-color: var(--color-surface-sunken);
-  color: var(--color-text-secondary);
-}
-
-[data-chip][data-tone='accent'] {
-  background-color: var(--ui-color-brand-primary-subtle);
-  color: var(--ui-color-brand-primary);
-}
-
-[data-chip][data-tone='warning'] {
-  background-color: var(--color-state-warningSurface);
-  color: var(--color-state-warning);
-}
-
-[data-chip][data-tone='success'] {
-  background-color: var(--color-state-successSurface);
-  color: var(--color-state-success);
-}
-
-[data-empty-state] {
-  text-align: center;
-  padding: var(--spacing-10);
-  color: var(--color-text-secondary);
-}
-
-[data-empty-state] h2 {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-2);
-}
-
-[data-form-field] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-1);
-}
-
-[data-form-field] label {
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-}
-
-[data-form-field] input,
-[data-form-field] select,
-[data-form-field] textarea {
-  font: inherit;
-  color: var(--color-text-primary);
-  background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-2) var(--spacing-3);
-  outline: none;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-  width: 100%;
-}
-
-[data-form-field] textarea {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  min-height: 12rem;
-}
-
-[data-form-field] input:focus-visible,
-[data-form-field] select:focus-visible,
-[data-form-field] textarea:focus-visible {
-  border-color: var(--ui-color-brand-primary);
-  box-shadow: 0 0 0 3px var(--ui-color-brand-primary-subtle);
-}
-
-[data-form-field] [data-help] {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-}
-
-[data-form-field] [data-error] {
-  font-size: var(--text-xs);
-  color: var(--color-state-danger);
-}
-
-[data-form-actions] {
-  display: flex;
-  gap: var(--spacing-3);
-  justify-content: flex-end;
-  margin-top: var(--spacing-6);
-}
-
-[data-banner] {
-  padding: var(--spacing-3) var(--spacing-4);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-}
-
-[data-banner][data-tone='info'] {
-  background-color: var(--ui-color-brand-primary-subtle);
-  color: var(--ui-color-brand-primary);
-}
-
-[data-banner][data-tone='danger'] {
-  background-color: var(--color-state-dangerSurface);
-  color: var(--color-state-danger);
-}
-
-[data-banner][data-tone='success'] {
-  background-color: var(--color-state-successSurface);
-  color: var(--color-state-success);
-}
-
-[data-button='ghost'] {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--ui-color-brand-primary);
-  padding: var(--spacing-2) var(--spacing-3);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-}
-
-[data-button='ghost']:hover:not(:disabled) {
-  background-color: var(--ui-color-brand-primary-subtle);
-}
-
-[data-button='ghost']:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-[data-page='fact-find'] {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
-}
-
-[data-fact-find-nav] {
-  background-color: var(--color-surface-raised);
-  border-right: 1px solid var(--color-border-subtle);
-  padding: var(--spacing-6) var(--spacing-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4);
-}
-
-[data-fact-find-nav] header h2 {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-}
-
-[data-fact-find-nav] header p {
-  color: var(--color-text-tertiary);
-  font-size: var(--text-sm);
-}
-
-[data-fact-find-nav] ul {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-1);
-  list-style: none;
-  padding: 0;
-}
-
-[data-fact-find-nav] ul a {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-}
-
-[data-fact-find-nav] ul a:hover {
-  background-color: var(--color-surface-sunken);
-}
-
-[data-fact-find-nav] ul a[data-active='true'] {
-  background-color: var(--ui-color-brand-primary-subtle);
-  color: var(--ui-color-brand-primary);
-}
-
-[data-fact-find-main] {
-  padding: var(--spacing-8);
-  overflow-y: auto;
-}
-
-[data-fact-find-main] h1 {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--spacing-6);
-}
-
-[data-fact-find-main] section + section {
-  margin-top: var(--spacing-8);
-}
-
-[data-fact-find-main] h2 {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--spacing-4);
-}
-
-[data-question-block] {
-  background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-3);
-}
-
-[data-question-block] [data-question-actions] {
-  display: flex;
-  justify-content: flex-end;
-}
-
-[data-ai-suggestion] {
-  background-color: var(--ui-color-brand-primary-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-3);
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2);
-}
-
-[data-ai-suggestion] [data-ai-suggestion-meta] {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-}
-
-[data-row-grid] {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-4);
-}
-
-[data-row-grid='3'] {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-/* ──────────────────────────────────────────────────────────────────
- *  WP-7 — Role-specific portals
- * ────────────────────────────────────────────────────────────────── */
-
-[data-portal-kanban] {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: var(--spacing-4);
-  align-items: start;
-}
-
-[data-portal-bucket] {
-  background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-3);
-  min-height: 12rem;
-}
-
-[data-portal-bucket] header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-
-[data-portal-bucket] header h2 {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-[data-portal-bucket] > p {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-  margin: 0;
-}
-
-[data-portal-card-list] {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-3);
-}
 
 [data-portal-card] {
   background-color: var(--color-surface-base);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   padding: var(--spacing-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2);
-}
-
-[data-portal-card] header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-2);
-}
-
-[data-portal-card] header a {
-  color: var(--color-text-primary);
-  text-decoration: none;
-}
-
-[data-portal-card] header a:hover strong {
-  color: var(--ui-color-brand-primary);
-  text-decoration: underline;
+  list-style: none;
 }
 
 [data-portal-card-title] {
@@ -682,35 +142,49 @@ body {
   margin: 0;
 }
 
-[data-portal-card-actions] {
-  display: flex;
-  gap: var(--spacing-2);
-  margin-top: var(--spacing-1);
-}
-
 /* ──────────────────────────────────────────────────────────────────
- *  WP-6.5 — Fact Find item-list editor
+ *  Fact Find editor structural hooks
+ *  The editors render their fields through the Layer-4 Field / Input /
+ *  Select / Textarea wrappers, but a handful of structural slots
+ *  (description copy under the section heading, the totals strip
+ *  underneath an ItemList, the per-row container, the risk-profile
+ *  "(N pt)" annotation) need shared chrome. All values resolve to
+ *  tokens; no raw hex/px.
  * ────────────────────────────────────────────────────────────────── */
 
-[data-item-list] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-3);
-  margin-top: var(--spacing-4);
+[data-fact-find-description] {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+[data-fact-find-subheading] {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+[data-fact-find-totals] {
+  padding: var(--spacing-3);
+  background-color: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+[data-fact-find-totals] strong {
+  color: var(--color-text-primary);
+}
+
+[data-fact-find-list] {
   padding: var(--spacing-4);
   background-color: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
 }
 
-[data-item-list-header] {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-
-[data-item-list-header] h3 {
+[data-fact-find-list-label] {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
@@ -718,108 +192,40 @@ body {
   margin: 0;
 }
 
-[data-item-list-rows] {
+[data-fact-find-row] {
+  background-color: var(--color-surface-base);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
   list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-3);
 }
 
-[data-item-list-row] {
-  background-color: var(--color-surface-base);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2);
-}
-
-[data-item-list-row-body] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-3);
-}
-
-[data-item-list-row] [data-remove-row] {
-  align-self: flex-end;
-}
-
-[data-item-list-actions] {
-  display: flex;
-  justify-content: flex-end;
-}
-
-[data-empty-state] {
-  padding: var(--spacing-4);
-  text-align: center;
-  color: var(--color-text-tertiary);
-  font-size: var(--text-sm);
-  border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--radius-md);
-}
-
-[data-chip] {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--spacing-1) var(--spacing-2);
-  background-color: var(--color-surface-sunken);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-}
-
-[data-chip][data-tone='accent'] {
-  background-color: var(--ui-color-brand-primary-subtle);
-  color: var(--ui-color-brand-primary);
-}
-
-[data-totals] {
-  display: flex;
-  gap: var(--spacing-4);
-  padding: var(--spacing-3);
-  background-color: var(--color-surface-sunken);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-}
-
-[data-totals] strong {
-  color: var(--color-text-primary);
-}
-
-[data-radio-group] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2);
-  padding: var(--spacing-2) 0;
-}
-
-[data-radio] {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-3);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-base);
-  cursor: pointer;
-  transition: border-color 120ms ease;
-}
-
-[data-radio]:has(input:checked) {
-  border-color: var(--ui-color-brand-primary);
-  background-color: var(--ui-color-brand-primary-subtle);
-}
-
-[data-radio] input[type='radio'] {
-  margin-top: var(--spacing-1);
-}
-
-[data-radio] [data-radio-points] {
+[data-fact-find-points] {
   color: var(--color-text-tertiary);
   font-size: var(--text-xs);
   margin-left: var(--spacing-1);
+}
+
+/*
+ * Section headings (h2 / h3) inside the Fact Find editors. The route
+ * shell already renders the page-level <h1> through `<PageHeader>`,
+ * but each section editor still emits its own <h2>"Personal" /
+ * <h2>"Income" headings so deep-links to a specific section have a
+ * recognisable title above the fields. Same with the per-block <h3>
+ * groupings (Home address / Disclosures / Leave accrued).
+ */
+section h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+section h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
 }

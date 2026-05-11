@@ -1,5 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 
+import { Button, Cluster, EmptyState, Stack, StatusBadge } from '@advicelink/ui';
+
 /**
  * `ItemList<T>` — repeating-row helper used by every Fact Find
  * section that holds a list of items (incomes, assets, super funds,
@@ -14,6 +16,13 @@ import type { ReactElement, ReactNode } from 'react';
  * Every row needs an `id` field on its row data so React keys are
  * stable across edits; the caller-supplied `makeNew` factory is
  * expected to mint one (`crypto.randomUUID()`).
+ *
+ * The chrome is built from the Layer-4 semantics + Layer-1 layout
+ * primitives in `@advicelink/ui` — no raw Tailwind utilities, no
+ * `[data-button]` / `[data-chip]` legacy markup. The list itself
+ * uses an ordinary `<ul>` with row `<li>`s so screen readers still
+ * announce a list; the visual chrome (border, hover, remove button)
+ * is owned by `[data-fact-find-row]` rules in `tokens.css`.
  */
 
 export interface ItemListProps<T extends { id: string }> {
@@ -61,50 +70,45 @@ export function ItemList<T extends { id: string }>({
   }
 
   return (
-    <div data-item-list>
-      <header data-item-list-header>
-        <h3>{label}</h3>
-        <span data-chip>
+    <Stack gap={3} data-fact-find-list>
+      <Cluster justify="between" gap={2}>
+        <h3 data-fact-find-list-label>{label}</h3>
+        <StatusBadge tone="neutral">
           {items.length}
           {typeof max === 'number' ? ` / ${max}` : ''}
-        </span>
-      </header>
+        </StatusBadge>
+      </Cluster>
 
       {items.length === 0 ? (
-        <div data-empty-state>
-          <p>{emptyHint ?? 'No items yet.'}</p>
-        </div>
+        <EmptyState title={emptyHint ?? 'No items yet.'} />
       ) : (
-        <ul data-item-list-rows>
+        <Stack as="ul" gap={3}>
           {items.map((item, index) => (
-            <li key={item.id} data-item-list-row>
-              <div data-item-list-row-body>
+            <li key={item.id} data-fact-find-row>
+              <Stack gap={3}>
                 {renderRow(item, index, (next) => patchRow(index, next))}
-              </div>
-              {!disabled ? (
-                <button
-                  type="button"
-                  data-button="ghost"
-                  onClick={() => removeRow(index)}
-                  data-remove-row
-                >
-                  Remove
-                </button>
-              ) : null}
+                {!disabled ? (
+                  <Cluster justify="end">
+                    <Button type="button" tone="ghost" onClick={() => removeRow(index)}>
+                      Remove
+                    </Button>
+                  </Cluster>
+                ) : null}
+              </Stack>
             </li>
           ))}
-        </ul>
+        </Stack>
       )}
 
       {summary}
 
       {!disabled ? (
-        <div data-item-list-actions>
-          <button type="button" data-button="secondary" onClick={addRow} disabled={atCap}>
+        <Cluster>
+          <Button type="button" tone="secondary" onClick={addRow} disabled={atCap}>
             {atCap ? `Maximum ${max} reached` : '+ Add'}
-          </button>
-        </div>
+          </Button>
+        </Cluster>
       ) : null}
-    </div>
+    </Stack>
   );
 }

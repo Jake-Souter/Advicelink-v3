@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { employmentSchema, type Employment, type EmploymentStatus } from '@advicelink/schemas';
+import { Grid, Input, Select, Stack, Textarea, YesNoSelect } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { SaveBar } from '../forms/SaveBar';
@@ -56,12 +57,12 @@ export function EmploymentEditor({
   }
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>{heading}</h2>
 
-      <div data-row-grid>
+      <Grid cols={2} gap={4}>
         <Field label="Occupation" error={form.errors['occupation']}>
-          <input
+          <Input
             type="text"
             value={form.draft.occupation ?? ''}
             onChange={(e) =>
@@ -71,41 +72,33 @@ export function EmploymentEditor({
           />
         </Field>
         <Field label="Employer" error={form.errors['employer']}>
-          <input
+          <Input
             type="text"
             value={form.draft.employer ?? ''}
             onChange={(e) => patch('employer', e.target.value === '' ? undefined : e.target.value)}
             disabled={isLocked}
           />
         </Field>
-      </div>
+      </Grid>
 
-      <div data-row-grid="3" style={{ marginTop: '1rem' }}>
+      <Grid cols={2} gap={4}>
         <Field label="Employment status" error={form.errors['employmentStatus']}>
-          <select
-            value={form.draft.employmentStatus ?? ''}
-            onChange={(e) =>
-              patch(
-                'employmentStatus',
-                e.target.value === '' ? undefined : (e.target.value as EmploymentStatus),
-              )
+          <Select
+            value={form.draft.employmentStatus ?? undefined}
+            onValueChange={(v) =>
+              patch('employmentStatus', (v ?? undefined) as EmploymentStatus | undefined)
             }
             disabled={isLocked}
-          >
-            <option value="">—</option>
-            {EMPLOYMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            clearable
+            options={EMPLOYMENT_STATUSES.map((s) => ({ value: s, label: s }))}
+          />
         </Field>
         <Field
           label="% of work in office"
           error={form.errors['percentageWorkInOffice']}
           help="0–100"
         >
-          <input
+          <Input
             type="number"
             min={0}
             max={100}
@@ -119,10 +112,10 @@ export function EmploymentEditor({
             disabled={isLocked}
           />
         </Field>
-      </div>
+      </Grid>
 
       <Field label="Work duties" error={form.errors['workDuties']}>
-        <textarea
+        <Textarea
           rows={3}
           value={form.draft.workDuties ?? ''}
           onChange={(e) => patch('workDuties', e.target.value === '' ? undefined : e.target.value)}
@@ -130,10 +123,10 @@ export function EmploymentEditor({
         />
       </Field>
 
-      <h3 style={{ marginTop: '1.5rem' }}>Leave accrued (hours)</h3>
-      <div data-row-grid="3">
+      <h3>Leave accrued (hours)</h3>
+      <Grid cols={3} gap={4}>
         <Field label="Annual leave" error={form.errors['annualLeaveAccruedHours']}>
-          <input
+          <Input
             type="number"
             min={0}
             step={1}
@@ -148,7 +141,7 @@ export function EmploymentEditor({
           />
         </Field>
         <Field label="Sick leave" error={form.errors['sickLeaveAccruedHours']}>
-          <input
+          <Input
             type="number"
             min={0}
             step={1}
@@ -163,7 +156,7 @@ export function EmploymentEditor({
           />
         </Field>
         <Field label="Long service leave" error={form.errors['longServiceLeaveAccruedHours']}>
-          <input
+          <Input
             type="number"
             min={0}
             step={1}
@@ -177,57 +170,27 @@ export function EmploymentEditor({
             disabled={isLocked}
           />
         </Field>
-      </div>
+      </Grid>
 
-      <h3 style={{ marginTop: '1.5rem' }}>Workplace risk factors</h3>
-      <div data-row-grid>
+      <h3>Workplace risk factors</h3>
+      <Grid cols={2} gap={4}>
         <Field label="Works with hazardous materials">
-          <select
-            value={
-              form.draft.worksWithHazardousMaterials == null
-                ? ''
-                : form.draft.worksWithHazardousMaterials
-                  ? 'yes'
-                  : 'no'
-            }
-            onChange={(e) =>
-              patch(
-                'worksWithHazardousMaterials',
-                e.target.value === '' ? undefined : e.target.value === 'yes',
-              )
-            }
+          <YesNoSelect
+            value={form.draft.worksWithHazardousMaterials ?? undefined}
+            onChange={(v) => patch('worksWithHazardousMaterials', v)}
             disabled={isLocked}
-          >
-            <option value="">—</option>
-            <option value="no">No</option>
-            <option value="yes">Yes</option>
-          </select>
+          />
         </Field>
         <Field label="Works at heights over 12m">
-          <select
-            value={
-              form.draft.worksAtHeightsOver12m == null
-                ? ''
-                : form.draft.worksAtHeightsOver12m
-                  ? 'yes'
-                  : 'no'
-            }
-            onChange={(e) =>
-              patch(
-                'worksAtHeightsOver12m',
-                e.target.value === '' ? undefined : e.target.value === 'yes',
-              )
-            }
+          <YesNoSelect
+            value={form.draft.worksAtHeightsOver12m ?? undefined}
+            onChange={(v) => patch('worksAtHeightsOver12m', v)}
             disabled={isLocked}
-          >
-            <option value="">—</option>
-            <option value="no">No</option>
-            <option value="yes">Yes</option>
-          </select>
+          />
         </Field>
-      </div>
+      </Grid>
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }

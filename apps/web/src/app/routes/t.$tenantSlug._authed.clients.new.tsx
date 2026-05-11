@@ -152,7 +152,7 @@ function NewClientPage(): ReactElement {
                   >
                     <Select
                       value={destinationId}
-                      onValueChange={setDestinationId}
+                      onValueChange={(next) => setDestinationId(next ?? '')}
                       disabled={create.isPending || grants.isPending}
                       options={grantOptions}
                       placeholder="Choose a firm…"

@@ -8,6 +8,7 @@ import {
   type Insurance,
   type InsuranceCover,
 } from '@advicelink/schemas';
+import { Cluster, Grid, Input, Select, Stack, YesNoSelect } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { ItemList } from '../forms/ItemList';
@@ -35,6 +36,33 @@ const FREQUENCIES: readonly Frequency[] = [
   'Monthly',
   'Quarterly',
   'Annual',
+];
+const PAYEE_OPTIONS: ReadonlyArray<{ value: NonNullable<InsuranceCover['payee']>; label: string }> =
+  [
+    { value: 'Self', label: 'Self' },
+    { value: 'Super', label: 'Super' },
+  ];
+const TPD_DEFINITION_OPTIONS: ReadonlyArray<{
+  value: NonNullable<InsuranceCover['definition']>;
+  label: string;
+}> = [
+  { value: 'Any Occ', label: 'Any Occ' },
+  { value: 'Own Occ', label: 'Own Occ' },
+];
+const TPD_STRUCTURE_OPTIONS: ReadonlyArray<{
+  value: NonNullable<InsuranceCover['structure']>;
+  label: string;
+}> = [
+  { value: 'Standalone', label: 'Standalone' },
+  { value: 'Linked', label: 'Linked' },
+];
+const PREMIUM_TYPE_OPTIONS: ReadonlyArray<{
+  value: NonNullable<InsuranceCover['premiumType']>;
+  label: string;
+}> = [
+  { value: 'Stepped', label: 'Stepped' },
+  { value: 'Level', label: 'Level' },
+  { value: 'Hybrid', label: 'Hybrid' },
 ];
 
 export interface InsuranceEditorProps {
@@ -68,11 +96,9 @@ export function InsuranceEditor({
   }
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>Insurance</h2>
-      <p style={{ color: 'var(--text-tertiary, #98A2B3)' }}>
-        One row per cover. Sub-fields adapt to the cover type.
-      </p>
+      <p data-fact-find-description>One row per cover. Sub-fields adapt to the cover type.</p>
 
       <ItemList
         label="Existing covers"
@@ -83,7 +109,7 @@ export function InsuranceEditor({
         disabled={isLocked}
         emptyHint="No insurance covers captured yet."
         summary={
-          <div data-totals>
+          <Cluster gap={6} data-fact-find-totals>
             <span>
               Inside-super premium (annual):{' '}
               <strong>${(form.draft.totalSuperPremium ?? 0).toLocaleString()}</strong>
@@ -92,18 +118,18 @@ export function InsuranceEditor({
               Personal premium (annual):{' '}
               <strong>${(form.draft.totalPersonalPremium ?? 0).toLocaleString()}</strong>
             </span>
-          </div>
+          </Cluster>
         }
         renderRow={(cover, index, patch) => {
           const ip = isIpCover(cover.coverType);
           return (
-            <>
-              <div data-row-grid="3">
+            <Stack gap={3}>
+              <Grid cols={3} gap={4}>
                 <Field label="Cover type" error={form.errors[`covers.${index}.coverType`]}>
-                  <select
+                  <Select
                     value={cover.coverType}
-                    onChange={(e) => {
-                      const next = e.target.value as CoverType;
+                    onValueChange={(v) => {
+                      const next = v as CoverType;
                       const nextIp = isIpCover(next);
                       patch({
                         coverType: next,
@@ -116,16 +142,11 @@ export function InsuranceEditor({
                       });
                     }}
                     disabled={isLocked}
-                  >
-                    {COVER_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                    options={COVER_TYPES.map((t) => ({ value: t, label: t }))}
+                  />
                 </Field>
                 <Field label="Insurer" error={form.errors[`covers.${index}.insurer`]}>
-                  <input
+                  <Input
                     type="text"
                     value={cover.insurer ?? ''}
                     onChange={(e) =>
@@ -135,32 +156,25 @@ export function InsuranceEditor({
                   />
                 </Field>
                 <Field label="Payee" error={form.errors[`covers.${index}.payee`]}>
-                  <select
-                    value={cover.payee ?? ''}
-                    onChange={(e) =>
-                      patch({
-                        payee:
-                          e.target.value === ''
-                            ? undefined
-                            : (e.target.value as InsuranceCover['payee']),
-                      })
+                  <Select
+                    value={cover.payee ?? undefined}
+                    onValueChange={(v) =>
+                      patch({ payee: (v ?? undefined) as InsuranceCover['payee'] })
                     }
                     disabled={isLocked}
-                  >
-                    <option value="">—</option>
-                    <option value="Self">Self</option>
-                    <option value="Super">Super</option>
-                  </select>
+                    clearable
+                    options={PAYEE_OPTIONS}
+                  />
                 </Field>
-              </div>
+              </Grid>
 
               {ip ? (
-                <div data-row-grid="3" style={{ marginTop: '0.5rem' }}>
+                <Grid cols={3} gap={4}>
                   <Field
                     label="Monthly benefit (AUD)"
                     error={form.errors[`covers.${index}.monthlyBenefit`]}
                   >
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step={50}
@@ -179,7 +193,7 @@ export function InsuranceEditor({
                     help='e.g. "30 days"'
                     error={form.errors[`covers.${index}.waitingPeriod`]}
                   >
-                    <input
+                    <Input
                       type="text"
                       value={cover.waitingPeriod ?? ''}
                       onChange={(e) =>
@@ -195,7 +209,7 @@ export function InsuranceEditor({
                     help='e.g. "2 years" or "to age 65"'
                     error={form.errors[`covers.${index}.benefitPeriod`]}
                   >
-                    <input
+                    <Input
                       type="text"
                       value={cover.benefitPeriod ?? ''}
                       onChange={(e) =>
@@ -206,14 +220,14 @@ export function InsuranceEditor({
                       disabled={isLocked}
                     />
                   </Field>
-                </div>
+                </Grid>
               ) : (
-                <div data-row-grid style={{ marginTop: '0.5rem' }}>
+                <Grid cols={2} gap={4}>
                   <Field
                     label="Cover amount (AUD)"
                     error={form.errors[`covers.${index}.coverAmount`]}
                   >
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step={1000}
@@ -226,54 +240,40 @@ export function InsuranceEditor({
                       disabled={isLocked}
                     />
                   </Field>
-                </div>
+                </Grid>
               )}
 
               {cover.coverType === 'TPD' ? (
-                <div data-row-grid style={{ marginTop: '0.5rem' }}>
+                <Grid cols={2} gap={4}>
                   <Field label="TPD definition" error={form.errors[`covers.${index}.definition`]}>
-                    <select
-                      value={cover.definition ?? ''}
-                      onChange={(e) =>
-                        patch({
-                          definition:
-                            e.target.value === ''
-                              ? undefined
-                              : (e.target.value as InsuranceCover['definition']),
-                        })
+                    <Select
+                      value={cover.definition ?? undefined}
+                      onValueChange={(v) =>
+                        patch({ definition: (v ?? undefined) as InsuranceCover['definition'] })
                       }
                       disabled={isLocked}
-                    >
-                      <option value="">—</option>
-                      <option value="Any Occ">Any Occ</option>
-                      <option value="Own Occ">Own Occ</option>
-                    </select>
+                      clearable
+                      options={TPD_DEFINITION_OPTIONS}
+                    />
                   </Field>
                   <Field label="TPD structure" error={form.errors[`covers.${index}.structure`]}>
-                    <select
-                      value={cover.structure ?? ''}
-                      onChange={(e) =>
-                        patch({
-                          structure:
-                            e.target.value === ''
-                              ? undefined
-                              : (e.target.value as InsuranceCover['structure']),
-                        })
+                    <Select
+                      value={cover.structure ?? undefined}
+                      onValueChange={(v) =>
+                        patch({ structure: (v ?? undefined) as InsuranceCover['structure'] })
                       }
                       disabled={isLocked}
-                    >
-                      <option value="">—</option>
-                      <option value="Standalone">Standalone</option>
-                      <option value="Linked">Linked</option>
-                    </select>
+                      clearable
+                      options={TPD_STRUCTURE_OPTIONS}
+                    />
                   </Field>
-                </div>
+                </Grid>
               ) : null}
 
-              <h4 style={{ marginTop: '0.75rem', fontSize: '0.875rem' }}>Premium</h4>
-              <div data-row-grid="3">
+              <h4 data-fact-find-subheading>Premium</h4>
+              <Grid cols={3} gap={4}>
                 <Field label="Premium amount" error={form.errors[`covers.${index}.premium`]}>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     step={10}
@@ -290,77 +290,50 @@ export function InsuranceEditor({
                   label="Premium frequency"
                   error={form.errors[`covers.${index}.premiumFrequency`]}
                 >
-                  <select
-                    value={cover.premiumFrequency ?? ''}
-                    onChange={(e) =>
+                  <Select
+                    value={cover.premiumFrequency ?? undefined}
+                    onValueChange={(v) =>
                       patch({
-                        premiumFrequency:
-                          e.target.value === '' ? undefined : (e.target.value as Frequency),
+                        premiumFrequency: (v ?? undefined) as Frequency | undefined,
                       })
                     }
                     disabled={isLocked}
-                  >
-                    <option value="">—</option>
-                    {FREQUENCIES.map((f) => (
-                      <option key={f} value={f}>
-                        {f}
-                      </option>
-                    ))}
-                  </select>
+                    clearable
+                    options={FREQUENCIES.map((f) => ({ value: f, label: f }))}
+                  />
                 </Field>
                 <Field label="Annual premium (derived)">
-                  <input type="number" value={cover.annualPremium ?? ''} disabled readOnly />
+                  <Input type="number" value={cover.annualPremium ?? ''} disabled readOnly />
                 </Field>
-              </div>
-              <div data-row-grid="3" style={{ marginTop: '0.5rem' }}>
+              </Grid>
+              <Grid cols={2} gap={4}>
                 <Field label="Premium type" error={form.errors[`covers.${index}.premiumType`]}>
-                  <select
-                    value={cover.premiumType ?? ''}
-                    onChange={(e) =>
+                  <Select
+                    value={cover.premiumType ?? undefined}
+                    onValueChange={(v) =>
                       patch({
-                        premiumType:
-                          e.target.value === ''
-                            ? undefined
-                            : (e.target.value as InsuranceCover['premiumType']),
+                        premiumType: (v ?? undefined) as InsuranceCover['premiumType'],
                       })
                     }
                     disabled={isLocked}
-                  >
-                    <option value="">—</option>
-                    <option value="Stepped">Stepped</option>
-                    <option value="Level">Level</option>
-                    <option value="Hybrid">Hybrid</option>
-                  </select>
+                    clearable
+                    options={PREMIUM_TYPE_OPTIONS}
+                  />
                 </Field>
                 <Field label="Medically underwritten">
-                  <select
-                    value={
-                      cover.medicallyUnderwritten == null
-                        ? ''
-                        : cover.medicallyUnderwritten
-                          ? 'yes'
-                          : 'no'
-                    }
-                    onChange={(e) =>
-                      patch({
-                        medicallyUnderwritten:
-                          e.target.value === '' ? undefined : e.target.value === 'yes',
-                      })
-                    }
+                  <YesNoSelect
+                    value={cover.medicallyUnderwritten ?? undefined}
+                    onChange={(v) => patch({ medicallyUnderwritten: v })}
                     disabled={isLocked}
-                  >
-                    <option value="">—</option>
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
+                  />
                 </Field>
-              </div>
-            </>
+              </Grid>
+            </Stack>
           );
         }}
       />
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }

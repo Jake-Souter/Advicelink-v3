@@ -8,6 +8,7 @@ import {
   type Frequency,
   type Superannuation,
 } from '@advicelink/schemas';
+import { Cluster, Grid, Input, Select, Stack, YesNoSelect } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { ItemList } from '../forms/ItemList';
@@ -79,58 +80,44 @@ export function ContributionsEditor({
   }
 
   const funds = superannuation?.currentFunds ?? [];
+  const fundOptions = funds.map((f) => ({
+    value: f.id,
+    label: f.fundName ?? '(unnamed fund)',
+  }));
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>Contributions</h2>
-      <p style={{ color: 'var(--text-tertiary, #98A2B3)' }}>
-        Super Guarantee destination + any additional contributions.
-      </p>
+      <p data-fact-find-description>Super Guarantee destination + any additional contributions.</p>
 
-      <h3 style={{ marginTop: '1rem' }}>Super Guarantee (SG)</h3>
-      <div data-row-grid="3">
+      <h3>Super Guarantee (SG)</h3>
+      <Grid cols={3} gap={4}>
         <Field label="SG total (annual, derived)">
-          <input type="number" value={form.draft.totalSgAnnual ?? 0} disabled readOnly />
+          <Input type="number" value={form.draft.totalSgAnnual ?? 0} disabled readOnly />
         </Field>
         <Field label="SG destination fund" error={form.errors['sgDestination']}>
-          <select
-            value={form.draft.sgDestination ?? ''}
-            onChange={(e) =>
-              patch('sgDestination', e.target.value === '' ? undefined : e.target.value)
-            }
+          <Select
+            value={form.draft.sgDestination ?? undefined}
+            onValueChange={(v) => patch('sgDestination', v)}
             disabled={isLocked || funds.length === 0}
-          >
-            <option value="">{funds.length === 0 ? 'Add a super fund first' : '—'}</option>
-            {funds.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.fundName ?? '(unnamed fund)'}
-              </option>
-            ))}
-          </select>
+            clearable
+            placeholder={funds.length === 0 ? 'Add a super fund first' : '—'}
+            options={fundOptions}
+          />
         </Field>
         <Field label="SG frequency" error={form.errors['sgFrequency']}>
-          <select
-            value={form.draft.sgFrequency ?? ''}
-            onChange={(e) =>
-              patch(
-                'sgFrequency',
-                e.target.value === '' ? undefined : (e.target.value as Frequency),
-              )
-            }
+          <Select
+            value={form.draft.sgFrequency ?? undefined}
+            onValueChange={(v) => patch('sgFrequency', (v ?? undefined) as Frequency | undefined)}
             disabled={isLocked}
-          >
-            <option value="">—</option>
-            {FREQUENCIES.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+            clearable
+            options={FREQUENCIES.map((f) => ({ value: f, label: f }))}
+          />
         </Field>
-      </div>
-      <div data-row-grid style={{ marginTop: '0.5rem' }}>
+      </Grid>
+      <Grid cols={2} gap={4}>
         <Field label="SG last received" error={form.errors['sgLastReceived']}>
-          <input
+          <Input
             type="date"
             value={form.draft.sgLastReceived ?? ''}
             onChange={(e) =>
@@ -139,7 +126,7 @@ export function ContributionsEditor({
             disabled={isLocked}
           />
         </Field>
-      </div>
+      </Grid>
 
       <ItemList
         label="Additional contributions"
@@ -150,7 +137,7 @@ export function ContributionsEditor({
         disabled={isLocked}
         emptyHint="No additional contributions captured."
         summary={
-          <div data-totals>
+          <Cluster gap={6} data-fact-find-totals>
             <span>
               Concessional total:{' '}
               <strong>${(form.draft.totalConcessional ?? 0).toLocaleString()}</strong>
@@ -159,32 +146,27 @@ export function ContributionsEditor({
               Non-concessional total:{' '}
               <strong>${(form.draft.totalNonConcessional ?? 0).toLocaleString()}</strong>
             </span>
-          </div>
+          </Cluster>
         }
         renderRow={(item, index, rowPatch) => (
-          <>
-            <div data-row-grid="3">
+          <Stack gap={3}>
+            <Grid cols={3} gap={4}>
               <Field label="Type" error={form.errors[`items.${index}.type`]}>
-                <select
+                <Select
                   value={item.type}
-                  onChange={(e) => {
-                    const type = e.target.value as ContributionType;
+                  onValueChange={(v) => {
+                    const type = v as ContributionType;
                     rowPatch({
                       type,
                       noiSubmitted: type === 'Personal Concessional' ? item.noiSubmitted : false,
                     });
                   }}
                   disabled={isLocked}
-                >
-                  {CONTRIBUTION_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  options={CONTRIBUTION_TYPES.map((t) => ({ value: t, label: t }))}
+                />
               </Field>
               <Field label="Amount (AUD)" error={form.errors[`items.${index}.amount`]}>
-                <input
+                <Input
                   type="number"
                   min={0}
                   step={50}
@@ -196,40 +178,27 @@ export function ContributionsEditor({
                 />
               </Field>
               <Field label="Frequency" error={form.errors[`items.${index}.frequency`]}>
-                <select
+                <Select
                   value={item.frequency}
-                  onChange={(e) => rowPatch({ frequency: e.target.value as Frequency })}
+                  onValueChange={(v) => rowPatch({ frequency: v as Frequency })}
                   disabled={isLocked}
-                >
-                  {FREQUENCIES.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
+                  options={FREQUENCIES.map((f) => ({ value: f, label: f }))}
+                />
               </Field>
-            </div>
-            <div data-row-grid="3" style={{ marginTop: '0.5rem' }}>
+            </Grid>
+            <Grid cols={3} gap={4}>
               <Field label="Destination fund" error={form.errors[`items.${index}.destination`]}>
-                <select
-                  value={item.destination ?? ''}
-                  onChange={(e) =>
-                    rowPatch({
-                      destination: e.target.value === '' ? undefined : e.target.value,
-                    })
-                  }
+                <Select
+                  value={item.destination ?? undefined}
+                  onValueChange={(v) => rowPatch({ destination: v })}
                   disabled={isLocked || funds.length === 0}
-                >
-                  <option value="">{funds.length === 0 ? 'Add a super fund first' : '—'}</option>
-                  {funds.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.fundName ?? '(unnamed fund)'}
-                    </option>
-                  ))}
-                </select>
+                  clearable
+                  placeholder={funds.length === 0 ? 'Add a super fund first' : '—'}
+                  options={fundOptions}
+                />
               </Field>
               <Field label="Last received" error={form.errors[`items.${index}.lastReceived`]}>
-                <input
+                <Input
                   type="date"
                   value={item.lastReceived ?? ''}
                   onChange={(e) =>
@@ -245,22 +214,20 @@ export function ContributionsEditor({
                   label="Notice of intent submitted"
                   error={form.errors[`items.${index}.noiSubmitted`]}
                 >
-                  <select
-                    value={item.noiSubmitted ? 'yes' : 'no'}
-                    onChange={(e) => rowPatch({ noiSubmitted: e.target.value === 'yes' })}
+                  <YesNoSelect
+                    value={item.noiSubmitted}
+                    onChange={(v) => rowPatch({ noiSubmitted: v ?? false })}
                     disabled={isLocked}
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
+                    clearable={false}
+                  />
                 </Field>
               ) : null}
-            </div>
-          </>
+            </Grid>
+          </Stack>
         )}
       />
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }

@@ -1,19 +1,18 @@
 import type { ReactElement, ReactNode } from 'react';
 
+import { Field as UiField } from '@advicelink/ui';
+
 /**
- * `Field` — atomic labelled form-field shell. Pairs a label, an
- * optional help string, an optional error message, and the actual
- * input element. The input markup is supplied by the caller so the
- * component stays at Atom level (REBUILD_PLAN §11.6.3 Layer 2):
- * higher layers compose `Field` with the right input type per use.
+ * Local `Field` shim — preserves the old API (label/help/error/required
+ * /children) every Fact Find editor uses, and forwards to the
+ * shadcn-backed `Field` semantic in `@advicelink/ui`. Once every editor
+ * imports the new component directly we can delete this file; for now
+ * keeping the shim lets the WP-6.5 editors carry on rendering with the
+ * new visuals without each one having to be touched.
  *
- * Why an atom and not a Molecule?
- *   - The Fact Find UI has dozens of label-input pairs; a single
- *     reusable shell with `data-form-field` styling means a route
- *     file never reproduces the wiring.
- *   - We don't bind to `useId` here; the caller passes a stable id
- *     when accessibility wiring matters (most pages use the input
- *     name as the id).
+ * The shadcn Field handles its own label, error, and description
+ * styling — we just translate the legacy `help` prop to the semantic
+ * `help` slot and `error` to `error`.
  */
 export interface FieldProps {
   label: string;
@@ -25,14 +24,8 @@ export interface FieldProps {
 
 export function Field({ label, help, error, required, children }: FieldProps): ReactElement {
   return (
-    <div data-form-field>
-      <label>
-        {label}
-        {required ? ' *' : null}
-      </label>
+    <UiField label={label} help={help} error={error} required={required}>
       {children}
-      {help ? <span data-help>{help}</span> : null}
-      {error ? <span data-error>{error}</span> : null}
-    </div>
+    </UiField>
   );
 }

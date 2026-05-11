@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { superannuationSchema, type Superannuation, type SuperFund } from '@advicelink/schemas';
+import { Grid, Input, Stack, Textarea } from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { ItemList } from '../forms/ItemList';
@@ -42,9 +43,9 @@ export function SuperannuationEditor({
   }
 
   return (
-    <section>
+    <Stack as="section" gap={6}>
       <h2>Superannuation</h2>
-      <p style={{ color: 'var(--text-tertiary, #98A2B3)' }}>
+      <p data-fact-find-description>
         One row per current fund. Max 10. Richer fund metadata (USI, ABN, fees) is sourced from the
         recommended-portfolio configuration, not this section.
       </p>
@@ -58,10 +59,10 @@ export function SuperannuationEditor({
         disabled={isLocked}
         emptyHint="No super funds captured yet."
         renderRow={(fund, index, patch) => (
-          <>
-            <div data-row-grid="3">
+          <Stack gap={3}>
+            <Grid cols={3} gap={4}>
               <Field label="Fund name" error={form.errors[`currentFunds.${index}.fundName`]}>
-                <input
+                <Input
                   type="text"
                   value={fund.fundName ?? ''}
                   onChange={(e) =>
@@ -74,7 +75,7 @@ export function SuperannuationEditor({
                 label="Member number"
                 error={form.errors[`currentFunds.${index}.memberNumber`]}
               >
-                <input
+                <Input
                   type="text"
                   value={fund.memberNumber ?? ''}
                   onChange={(e) =>
@@ -89,7 +90,7 @@ export function SuperannuationEditor({
                 label="Investment option"
                 error={form.errors[`currentFunds.${index}.investmentOption`]}
               >
-                <input
+                <Input
                   type="text"
                   value={fund.investmentOption ?? ''}
                   onChange={(e) =>
@@ -100,13 +101,13 @@ export function SuperannuationEditor({
                   disabled={isLocked}
                 />
               </Field>
-            </div>
-            <div data-row-grid style={{ marginTop: '0.5rem' }}>
+            </Grid>
+            <Grid cols={2} gap={4}>
               <Field
                 label="Current balance (AUD)"
                 error={form.errors[`currentFunds.${index}.currentBalance`]}
               >
-                <input
+                <Input
                   type="number"
                   min={0}
                   step={100}
@@ -119,9 +120,9 @@ export function SuperannuationEditor({
                   disabled={isLocked}
                 />
               </Field>
-            </div>
+            </Grid>
             <Field label="Notes" error={form.errors[`currentFunds.${index}.notes`]}>
-              <textarea
+              <Textarea
                 rows={2}
                 value={fund.notes ?? ''}
                 onChange={(e) =>
@@ -130,11 +131,11 @@ export function SuperannuationEditor({
                 disabled={isLocked}
               />
             </Field>
-          </>
+          </Stack>
         )}
       />
 
       <SaveBar form={form} />
-    </section>
+    </Stack>
   );
 }
