@@ -2,7 +2,15 @@ import { useState, type ReactElement } from 'react';
 
 import { goalsSchema, type Goals } from '@advicelink/schemas';
 import type { PromptKey } from '@advicelink/ai';
-import { Alert, Button, Cluster, Grid, Input, Stack, Surface, Textarea } from '@advicelink/ui';
+import {
+  Alert,
+  Button,
+  Cluster,
+  Grid,
+  Input,
+  Stack,
+  Textarea,
+} from '@advicelink/ui';
 
 import { Field } from '../forms/Field';
 import { SaveBar } from '../forms/SaveBar';
@@ -12,17 +20,19 @@ import { trpc } from '../../lib/trpc';
 /**
  * Goals editor with the AI assist surface wired in.
  *
- * Each AI-assistable question pairs a textarea with a "Suggest"
- * button. Clicking the button posts the client display name + a
- * small slice of facts to `factFind.aiAssist`, which redacts PII,
- * calls Anthropic (or the stub adapter), and returns a suggestion
- * string. The user can accept (writes the suggestion into the
- * textarea) or dismiss it.
+ * Every question is phrased in the second person — the adviser
+ * captures the section while sitting next to the client, so the
+ * questions read as if the client is being asked directly ("What do
+ * you want to achieve…", "How important is super to you…").
  *
- * The 5 AI-assistable goals questions map 1:1 to prompt keys in
- * `@advicelink/ai`. The 2 remaining goals questions (super lump
- * sum, previous adviser) have no AI prompt yet — they're plain
- * textareas.
+ * AI assistance is a single bottom-of-section "Enhance" button
+ * rather than a per-question Suggest. Clicking it fans out one
+ * `factFind.aiAssist` call per AI-eligible question (the five
+ * questions in `QUESTIONS`), then writes each suggestion back into
+ * the matching draft field. The non-AI questions ("super lump sum"
+ * + "previous adviser") live in the same draft and are saved by the
+ * same SaveBar but are deliberately skipped by the bulk Enhance
+ * call — Anthropic has no prompt for them yet.
  */
 
 export interface GoalsEditorProps {
@@ -39,37 +49,55 @@ export interface GoalsEditorProps {
 interface GoalQuestion {
   field: keyof Pick<
     Goals,
-    'next12Months' | 'next1To5Years' | 'retirementPlan' | 'superImportance' | 'insuranceImportance'
+    | 'next12Months'
+    | 'next1To5Years'
+    | 'retirementPlan'
+    | 'superImportance'
+    | 'insuranceImportance'
+    | 'superLumpSum'
+    | 'previousAdviser'
   >;
   label: string;
   promptKey: PromptKey;
+  rows?: number;
 }
 
 const QUESTIONS: readonly GoalQuestion[] = [
   {
     field: 'next12Months',
-    label: 'What does the client want to achieve in the next 12 months?',
+    label: 'What do you want to achieve in the next 12 months?',
     promptKey: 'factFindGoalsNext12Months',
   },
   {
     field: 'next1To5Years',
-    label: 'What does the client want to achieve in the next 1-5 years?',
+    label: 'What do you want to achieve in the next 1-5 years?',
     promptKey: 'factFindGoalsNext1To5Years',
   },
   {
     field: 'retirementPlan',
-    label: "What is the client's retirement plan?",
+    label: 'What is your retirement plan?',
     promptKey: 'factFindGoalsRetirementPlan',
   },
   {
     field: 'superImportance',
-    label: 'How important is superannuation to the client and why?',
+    label: 'How important is superannuation to you and why?',
     promptKey: 'factFindGoalsSuperImportance',
   },
   {
     field: 'insuranceImportance',
-    label: 'How important is personal insurance to the client and why?',
+    label: 'How important is personal insurance to you and why?',
     promptKey: 'factFindGoalsInsuranceImportance',
+  },
+  {
+    field: 'superLumpSum',
+    label: 'How much would you like to have in your super by retirement?',
+    promptKey: 'factFindGoalsSuperLumpSum',
+  },
+  {
+    field: 'previousAdviser',
+    label: 'Have you ever received financial advice in the past?',
+    promptKey: 'factFindGoalsPreviousAdviser',
+    rows: 3,
   },
 ];
 
@@ -87,8 +115,60 @@ export function GoalsEditor({
     onSave: onSaveServer,
   });
 
+  const assist = trpc.factFind.aiAssist.useMutation();
+  const [enhancing, setEnhancing] = useState(false);
+  const [enhanceError, setEnhanceError] = useState<string | null>(null);
+  const [lastEnhanceMeta, setLastEnhanceMeta] = useState<{
+    costCents: number;
+    latencyMs: number;
+  } | null>(null);
+
   function patch<K extends keyof Goals>(key: K, value: Goals[K]): void {
     form.setDraft((prev: Goals) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleEnhanceAll(): Promise<void> {
+    setEnhancing(true);
+    setEnhanceError(null);
+    setLastEnhanceMeta(null);
+    try {
+      // Fan-out: one prompt per AI-eligible goals question. Each
+      // call is independent, so Promise.all keeps the wall-clock
+      // close to the slowest individual mutation rather than the
+      // sum of them.
+      const results = await Promise.all(
+        QUESTIONS.map((q) =>
+          assist
+            .mutateAsync({
+              clientId,
+              promptKey: q.promptKey,
+              input: { displayName: clientDisplayName, factsBullets },
+            })
+            .then((r) => ({
+              field: q.field,
+              suggestion: (r.output as { suggestion: string }).suggestion,
+              costCents: r.costCents,
+              latencyMs: r.latencyMs,
+            })),
+        ),
+      );
+
+      form.setDraft((prev: Goals) => {
+        const next: Goals = { ...prev };
+        for (const r of results) {
+          next[r.field] = r.suggestion;
+        }
+        return next;
+      });
+
+      const totalCost = results.reduce((acc, r) => acc + r.costCents, 0);
+      const maxLatency = results.reduce((acc, r) => Math.max(acc, r.latencyMs), 0);
+      setLastEnhanceMeta({ costCents: totalCost, latencyMs: maxLatency });
+    } catch (err) {
+      setEnhanceError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setEnhancing(false);
+    }
   }
 
   return (
@@ -131,138 +211,41 @@ export function GoalsEditor({
       </Grid>
 
       {QUESTIONS.map((q) => (
-        <GoalQuestionBlock
-          key={q.field}
-          question={q}
-          value={form.draft[q.field] ?? ''}
-          onChange={(v) => patch(q.field, v)}
-          disabled={isLocked}
-          clientId={clientId}
-          clientDisplayName={clientDisplayName}
-          factsBullets={factsBullets}
-        />
+        <Field key={q.field} label={q.label}>
+          <Textarea
+            value={form.draft[q.field] ?? ''}
+            onChange={(e) => patch(q.field, e.target.value)}
+            disabled={isLocked}
+            rows={q.rows ?? 4}
+          />
+        </Field>
       ))}
 
-      <Field label="Super lump sum strategy notes (no AI suggest)">
-        <Textarea
-          value={form.draft.superLumpSum ?? ''}
-          onChange={(e) => patch('superLumpSum', e.target.value)}
-          disabled={isLocked}
-          rows={4}
-        />
-      </Field>
+      {enhanceError ? (
+        <Alert tone="danger" title="Enhance failed">
+          {enhanceError}
+        </Alert>
+      ) : null}
 
-      <Field label="Previous adviser (if any)">
-        <Textarea
-          value={form.draft.previousAdviser ?? ''}
-          onChange={(e) => patch('previousAdviser', e.target.value)}
-          disabled={isLocked}
-          rows={3}
-        />
-      </Field>
-
-      <SaveBar form={form} />
-    </Stack>
-  );
-}
-
-interface GoalQuestionBlockProps {
-  question: GoalQuestion;
-  value: string;
-  onChange: (value: string) => void;
-  disabled: boolean;
-  clientId: string;
-  clientDisplayName: string;
-  factsBullets: string[];
-}
-
-function GoalQuestionBlock({
-  question,
-  value,
-  onChange,
-  disabled,
-  clientId,
-  clientDisplayName,
-  factsBullets,
-}: GoalQuestionBlockProps): ReactElement {
-  const assist = trpc.factFind.aiAssist.useMutation();
-  const [suggestion, setSuggestion] = useState<string | null>(null);
-  const [costInfo, setCostInfo] = useState<{ costCents: number; latencyMs: number } | null>(null);
-
-  function handleSuggest(): void {
-    setSuggestion(null);
-    setCostInfo(null);
-    assist.mutate(
-      {
-        clientId,
-        promptKey: question.promptKey,
-        input: { displayName: clientDisplayName, factsBullets },
-      },
-      {
-        onSuccess: (result) => {
-          // The output schema across all goal prompts is `{ suggestion: string }`;
-          // the runtime check inside the API route already guarantees the shape.
-          const out = result.output as { suggestion: string };
-          setSuggestion(out.suggestion);
-          setCostInfo({ costCents: result.costCents, latencyMs: result.latencyMs });
-        },
-      },
-    );
-  }
-
-  return (
-    <Stack gap={3}>
-      <Field label={question.label}>
-        <Textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          rows={4}
-        />
-      </Field>
-      <Cluster>
+      <Cluster justify="end" gap={3}>
+        {lastEnhanceMeta ? (
+          <span data-fact-find-description>
+            Enhanced ({lastEnhanceMeta.costCents}¢ · {lastEnhanceMeta.latencyMs}ms)
+          </span>
+        ) : null}
         <Button
           type="button"
-          tone="ghost"
-          onClick={handleSuggest}
-          disabled={disabled || assist.isPending}
+          tone="secondary"
+          disabled={isLocked || enhancing}
+          onClick={() => {
+            void handleEnhanceAll();
+          }}
         >
-          {assist.isPending ? 'Asking AI…' : '✨ Suggest'}
+          {enhancing ? 'Enhancing…' : '✨ Enhance'}
         </Button>
       </Cluster>
-      {assist.isError ? (
-        <Alert tone="danger">AI assist failed: {assist.error.message}</Alert>
-      ) : null}
-      {suggestion ? (
-        <Surface
-          title="Suggested answer"
-          description={costInfo ? `${costInfo.costCents}¢ · ${costInfo.latencyMs}ms` : undefined}
-          actions={
-            <Cluster gap={2}>
-              <Button
-                type="button"
-                onClick={() => {
-                  onChange(suggestion);
-                  setSuggestion(null);
-                }}
-              >
-                Accept
-              </Button>
-              <Button
-                type="button"
-                tone="ghost"
-                onClick={() => {
-                  setSuggestion(null);
-                }}
-              >
-                Dismiss
-              </Button>
-            </Cluster>
-          }
-        >
-          {suggestion}
-        </Surface>
-      ) : null}
+
+      <SaveBar form={form} />
     </Stack>
   );
 }

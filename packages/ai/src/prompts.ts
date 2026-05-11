@@ -39,6 +39,8 @@ export const PROMPT_KEYS = [
   'factFindGoalsRetirementPlan',
   'factFindGoalsSuperImportance',
   'factFindGoalsInsuranceImportance',
+  'factFindGoalsSuperLumpSum',
+  'factFindGoalsPreviousAdviser',
   'factFindRiskNotes',
 ] as const;
 export type PromptKey = (typeof PROMPT_KEYS)[number];
@@ -116,6 +118,12 @@ export const PROMPTS = {
   ),
   factFindGoalsInsuranceImportance: goalPrompt(
     'Suggest a 1-2 sentence summary of how important personal insurance is to the client and why.',
+  ),
+  factFindGoalsSuperLumpSum: goalPrompt(
+    "Suggest a 1-2 sentence summary of how much the client would like to have in their super by retirement, and why that target reflects the lifestyle they're aiming for.",
+  ),
+  factFindGoalsPreviousAdviser: goalPrompt(
+    'Suggest a 1-2 sentence summary of whether the client has previously received financial advice — note who they spoke with, what was advised, and how they felt about that experience if the facts mention it.',
   ),
   factFindRiskNotes: goalPrompt(
     "Suggest 2-3 sentences of adviser-facing notes summarising the client's risk profile answers and any nuance worth recording.",
