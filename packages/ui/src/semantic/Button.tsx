@@ -39,15 +39,45 @@ export function Button({
   tone = 'primary',
   iconStart: IconStart,
   iconEnd: IconEnd,
+  asChild,
   className,
   children,
   ...rest
 }: ButtonProps): React.ReactElement {
+  const startIcon = IconStart ? <IconStart data-icon="inline-start" /> : null;
+  const endIcon = IconEnd ? <IconEnd data-icon="inline-end" /> : null;
+
+  /*
+   * `asChild` makes the underlying shadcn `Button` render a Radix `Slot`,
+   * which strictly requires a single React element child (it forwards
+   * props onto that element). If we passed `[startIcon, children, endIcon]`
+   * directly, `Slot.SlotClone` throws `React.Children.only`. Instead,
+   * splice the icons INSIDE the cloned child so the slot still sees one
+   * element while the rendered DOM ends up `<a><Icon/>label<Icon/></a>`.
+   */
+  if (asChild) {
+    const child = React.Children.only(children) as React.ReactElement<{
+      children?: React.ReactNode;
+    }>;
+    const decorated = React.cloneElement(
+      child,
+      undefined,
+      startIcon,
+      child.props.children,
+      endIcon,
+    );
+    return (
+      <ShadcnButton asChild variant={TONE_TO_VARIANT[tone]} className={cn(className)} {...rest}>
+        {decorated}
+      </ShadcnButton>
+    );
+  }
+
   return (
     <ShadcnButton variant={TONE_TO_VARIANT[tone]} className={cn(className)} {...rest}>
-      {IconStart ? <IconStart data-icon="inline-start" /> : null}
+      {startIcon}
       {children}
-      {IconEnd ? <IconEnd data-icon="inline-end" /> : null}
+      {endIcon}
     </ShadcnButton>
   );
 }
