@@ -2,14 +2,27 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState, type ReactElement } from 'react';
 import { z } from 'zod';
 
-import { factFindSectionSchemas, type FactFindSectionId, type Personal } from '@advicelink/schemas';
+import {
+  factFindSectionSchemas,
+  type FactFindSectionId,
+  type Personal,
+  type Superannuation,
+} from '@advicelink/schemas';
 
 import { trpc } from '../../lib/trpc';
 import { AppShell } from '../components/AppShell';
 import { SECTION_GROUPS, SECTION_META } from '../factFind/sectionMeta';
+import { AssetLiabilityEditor } from '../factFind/AssetLiabilityEditor';
+import { BeneficiariesEditor } from '../factFind/BeneficiariesEditor';
+import { ContributionsEditor } from '../factFind/ContributionsEditor';
+import { EmploymentEditor } from '../factFind/EmploymentEditor';
+import { FinancialEditor } from '../factFind/FinancialEditor';
 import { GoalsEditor } from '../factFind/GoalsEditor';
-import { JsonEditor } from '../factFind/JsonEditor';
+import { InsuranceEditor } from '../factFind/InsuranceEditor';
 import { PersonalEditor } from '../factFind/PersonalEditor';
+import { RiskProfileEditor } from '../factFind/RiskProfileEditor';
+import { SuperannuationEditor } from '../factFind/SuperannuationEditor';
+import { assetsSchema, liabilitiesSchema } from '@advicelink/schemas';
 
 /**
  * `/t/$tenantSlug/clients/$clientId/fact-find` — the wizard.
@@ -208,19 +221,111 @@ interface SectionEditorProps {
 }
 
 /**
- * Per-section dispatcher. Bespoke editors land here as they're
- * built; everything else falls through to `JsonEditor` so every
- * section is editable from day one.
+ * Per-section dispatcher. Every section now has a bespoke editor
+ * (WP-6.5); the legacy generic JSON-editor fallback is retired.
+ * `factFindSectionSchemas` is still consulted at the leaf level
+ * via the editor props (each editor imports its own canonical
+ * schema), and `SECTION_META` remains the single source of truth
+ * for sidebar labels — but the dispatcher now hard-codes a switch
+ * so adding a new section forces an explicit editor wiring step.
  */
 function SectionEditor(props: SectionEditorProps): ReactElement {
-  const meta = useMemo(() => SECTION_META.find((s) => s.id === props.sectionId), [props.sectionId]);
+  void useMemo(() => SECTION_META.find((s) => s.id === props.sectionId), [props.sectionId]);
+  void factFindSectionSchemas; // kept imported so future per-section custom forms can opt in.
+
   const value = props.serverSections[props.sectionId];
-  const schema = factFindSectionSchemas[props.sectionId];
 
   switch (props.sectionId) {
     case 'personal':
       return (
         <PersonalEditor
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+        />
+      );
+    case 'employment':
+      return (
+        <EmploymentEditor
+          heading="Employment"
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+        />
+      );
+    case 'partnerEmployment':
+      return (
+        <EmploymentEditor
+          heading="Partner employment"
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+        />
+      );
+    case 'financial':
+      return (
+        <FinancialEditor
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+        />
+      );
+    case 'assets':
+      return (
+        <AssetLiabilityEditor
+          heading="Assets"
+          description="Co-located with loans against each asset. Liability-only rows live in the Liabilities section."
+          schema={assetsSchema}
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+          totalsLabel="assets"
+          itemListLabel="Asset rows"
+          rowMax={50}
+        />
+      );
+    case 'liabilities':
+      return (
+        <AssetLiabilityEditor
+          heading="Liabilities"
+          description="Standalone debts (e.g. unsecured personal loans) with no underlying asset row."
+          schema={liabilitiesSchema}
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+          totalsLabel="liabilities"
+          itemListLabel="Liability rows"
+          rowMax={50}
+        />
+      );
+    case 'superannuation':
+      return (
+        <SuperannuationEditor
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+        />
+      );
+    case 'contributions':
+      return (
+        <ContributionsEditor
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+          superannuation={props.serverSections.superannuation as Superannuation | undefined}
+        />
+      );
+    case 'insurance':
+      return (
+        <InsuranceEditor
+          serverValue={value}
+          onSaveServer={async (parsed) => props.onSave(parsed)}
+          isLocked={props.isLocked}
+        />
+      );
+    case 'beneficiaries':
+      return (
+        <BeneficiariesEditor
           serverValue={value}
           onSaveServer={async (parsed) => props.onSave(parsed)}
           isLocked={props.isLocked}
@@ -237,11 +342,9 @@ function SectionEditor(props: SectionEditorProps): ReactElement {
           factsBullets={props.factsBullets}
         />
       );
-    default:
+    case 'riskProfile':
       return (
-        <JsonEditor
-          sectionLabel={meta?.label ?? props.sectionId}
-          schema={schema}
+        <RiskProfileEditor
           serverValue={value}
           onSaveServer={async (parsed) => props.onSave(parsed)}
           isLocked={props.isLocked}
