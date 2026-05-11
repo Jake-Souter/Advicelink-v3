@@ -14,8 +14,10 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
+    "@advicelink/ai": "workspace:*",
     "@advicelink/api": "workspace:*",
     "@advicelink/branding": "workspace:*",
+    "@advicelink/schemas": "workspace:*",
     "@advicelink/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.11",
     "@tanstack/react-router": "^1.91.1",

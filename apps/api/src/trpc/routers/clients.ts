@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { clients } from '@advicelink/db';
@@ -74,6 +74,11 @@ const transitionInput = z.object({
 
 const lockInput = z.object({ clientId: z.string().uuid() });
 const byIdInput = z.object({ clientId: z.string().uuid() });
+const listInput = z
+  .object({
+    limit: z.number().int().min(1).max(100).default(50),
+  })
+  .optional();
 
 export const clientsRouter = router({
   create: withRoles(['lead_gen', 'adviser', 'paraplanner', 'uf_support'])
@@ -87,6 +92,33 @@ export const clientsRouter = router({
       ctx.logger.info({ clientId: created.id }, 'clients.create');
       return created;
     }),
+
+  /**
+   * List the clients visible to the calling actor. Visibility is
+   * enforced authoritatively by RLS on the `clients` table — this
+   * procedure simply returns whatever the active tenant context
+   * makes visible. The select is intentionally narrow (no JSONB
+   * sections, no TFN) so the listing query stays cheap.
+   */
+  list: authedProcedure.input(listInput).query(async ({ ctx, input }) => {
+    const limit = input?.limit ?? 50;
+    const rows = await ctx.db
+      .select({
+        id: clients.id,
+        displayName: clients.displayName,
+        tenantId: clients.tenantId,
+        originatingLeadGenTenantId: clients.originatingLeadGenTenantId,
+        destinationAdviceTenantId: clients.destinationAdviceTenantId,
+        workflowState: clients.workflowState,
+        workflowPhase: clients.workflowPhase,
+        factFindLockedAt: clients.factFindLockedAt,
+        updatedAt: clients.updatedAt,
+      })
+      .from(clients)
+      .orderBy(desc(clients.updatedAt))
+      .limit(limit);
+    return rows;
+  }),
 
   byId: authedProcedure.input(byIdInput).query(async ({ ctx, input }) => {
     const row = await loadClientTenancy(ctx.db, input.clientId);

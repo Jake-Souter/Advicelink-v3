@@ -15,6 +15,9 @@ import { Route as TTenantSlugIndexRouteImport } from './routes/t.$tenantSlug.ind
 import { Route as TTenantSlugLoginRouteImport } from './routes/t.$tenantSlug.login'
 import { Route as TTenantSlugAuthedRouteImport } from './routes/t.$tenantSlug._authed'
 import { Route as TTenantSlugAuthedHomeRouteImport } from './routes/t.$tenantSlug._authed.home'
+import { Route as TTenantSlugAuthedClientsIndexRouteImport } from './routes/t.$tenantSlug._authed.clients.index'
+import { Route as TTenantSlugAuthedClientsNewRouteImport } from './routes/t.$tenantSlug._authed.clients.new'
+import { Route as TTenantSlugAuthedClientsClientIdFactFindRouteImport } from './routes/t.$tenantSlug._authed.clients.$clientId.fact-find'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +48,24 @@ const TTenantSlugAuthedHomeRoute = TTenantSlugAuthedHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => TTenantSlugAuthedRoute,
 } as any)
+const TTenantSlugAuthedClientsIndexRoute =
+  TTenantSlugAuthedClientsIndexRouteImport.update({
+    id: '/clients/',
+    path: '/clients/',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
+const TTenantSlugAuthedClientsNewRoute =
+  TTenantSlugAuthedClientsNewRouteImport.update({
+    id: '/clients/new',
+    path: '/clients/new',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
+const TTenantSlugAuthedClientsClientIdFactFindRoute =
+  TTenantSlugAuthedClientsClientIdFactFindRouteImport.update({
+    id: '/clients/$clientId/fact-find',
+    path: '/clients/$clientId/fact-find',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -52,12 +73,18 @@ export interface FileRoutesByFullPath {
   '/t/$tenantSlug/login': typeof TTenantSlugLoginRoute
   '/t/$tenantSlug/': typeof TTenantSlugIndexRoute
   '/t/$tenantSlug/home': typeof TTenantSlugAuthedHomeRoute
+  '/t/$tenantSlug/clients/new': typeof TTenantSlugAuthedClientsNewRoute
+  '/t/$tenantSlug/clients/': typeof TTenantSlugAuthedClientsIndexRoute
+  '/t/$tenantSlug/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/t/$tenantSlug': typeof TTenantSlugIndexRoute
   '/t/$tenantSlug/login': typeof TTenantSlugLoginRoute
   '/t/$tenantSlug/home': typeof TTenantSlugAuthedHomeRoute
+  '/t/$tenantSlug/clients/new': typeof TTenantSlugAuthedClientsNewRoute
+  '/t/$tenantSlug/clients': typeof TTenantSlugAuthedClientsIndexRoute
+  '/t/$tenantSlug/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -67,6 +94,9 @@ export interface FileRoutesById {
   '/t/$tenantSlug/login': typeof TTenantSlugLoginRoute
   '/t/$tenantSlug/': typeof TTenantSlugIndexRoute
   '/t/$tenantSlug/_authed/home': typeof TTenantSlugAuthedHomeRoute
+  '/t/$tenantSlug/_authed/clients/new': typeof TTenantSlugAuthedClientsNewRoute
+  '/t/$tenantSlug/_authed/clients/': typeof TTenantSlugAuthedClientsIndexRoute
+  '/t/$tenantSlug/_authed/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -76,8 +106,18 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/login'
     | '/t/$tenantSlug/'
     | '/t/$tenantSlug/home'
+    | '/t/$tenantSlug/clients/new'
+    | '/t/$tenantSlug/clients/'
+    | '/t/$tenantSlug/clients/$clientId/fact-find'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/t/$tenantSlug' | '/t/$tenantSlug/login' | '/t/$tenantSlug/home'
+  to:
+    | '/'
+    | '/t/$tenantSlug'
+    | '/t/$tenantSlug/login'
+    | '/t/$tenantSlug/home'
+    | '/t/$tenantSlug/clients/new'
+    | '/t/$tenantSlug/clients'
+    | '/t/$tenantSlug/clients/$clientId/fact-find'
   id:
     | '__root__'
     | '/'
@@ -86,6 +126,9 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/login'
     | '/t/$tenantSlug/'
     | '/t/$tenantSlug/_authed/home'
+    | '/t/$tenantSlug/_authed/clients/new'
+    | '/t/$tenantSlug/_authed/clients/'
+    | '/t/$tenantSlug/_authed/clients/$clientId/fact-find'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -137,15 +180,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TTenantSlugAuthedHomeRouteImport
       parentRoute: typeof TTenantSlugAuthedRoute
     }
+    '/t/$tenantSlug/_authed/clients/': {
+      id: '/t/$tenantSlug/_authed/clients/'
+      path: '/clients'
+      fullPath: '/t/$tenantSlug/clients/'
+      preLoaderRoute: typeof TTenantSlugAuthedClientsIndexRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
+    '/t/$tenantSlug/_authed/clients/new': {
+      id: '/t/$tenantSlug/_authed/clients/new'
+      path: '/clients/new'
+      fullPath: '/t/$tenantSlug/clients/new'
+      preLoaderRoute: typeof TTenantSlugAuthedClientsNewRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
+    '/t/$tenantSlug/_authed/clients/$clientId/fact-find': {
+      id: '/t/$tenantSlug/_authed/clients/$clientId/fact-find'
+      path: '/clients/$clientId/fact-find'
+      fullPath: '/t/$tenantSlug/clients/$clientId/fact-find'
+      preLoaderRoute: typeof TTenantSlugAuthedClientsClientIdFactFindRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
   }
 }
 
 interface TTenantSlugAuthedRouteChildren {
   TTenantSlugAuthedHomeRoute: typeof TTenantSlugAuthedHomeRoute
+  TTenantSlugAuthedClientsNewRoute: typeof TTenantSlugAuthedClientsNewRoute
+  TTenantSlugAuthedClientsIndexRoute: typeof TTenantSlugAuthedClientsIndexRoute
+  TTenantSlugAuthedClientsClientIdFactFindRoute: typeof TTenantSlugAuthedClientsClientIdFactFindRoute
 }
 
 const TTenantSlugAuthedRouteChildren: TTenantSlugAuthedRouteChildren = {
   TTenantSlugAuthedHomeRoute: TTenantSlugAuthedHomeRoute,
+  TTenantSlugAuthedClientsNewRoute: TTenantSlugAuthedClientsNewRoute,
+  TTenantSlugAuthedClientsIndexRoute: TTenantSlugAuthedClientsIndexRoute,
+  TTenantSlugAuthedClientsClientIdFactFindRoute:
+    TTenantSlugAuthedClientsClientIdFactFindRoute,
 }
 
 const TTenantSlugAuthedRouteWithChildren =

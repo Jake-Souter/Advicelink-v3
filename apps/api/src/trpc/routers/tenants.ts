@@ -1,10 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { tenants, withPlatformAdmin } from '@advicelink/db';
+import { isMarketingRole } from '@advicelink/rbac';
 
-import { publicProcedure, router } from '../trpc.js';
+import { authedProcedure, publicProcedure, router } from '../trpc.js';
 
 /**
  * `tenants.*` — pre-auth tenant discovery.
@@ -73,4 +74,26 @@ export const tenantsRouter = router({
         };
       });
     }),
+
+  /**
+   * List the destination advice firms the calling lead-gen tenant
+   * holds active grants for. Used by the create-client form to
+   * populate the destination dropdown.
+   *
+   * Returns `[]` for any non-lead-gen actor — the self-source flow
+   * does not need this query (the form skips the dropdown entirely
+   * for advice-family roles).
+   *
+   * The lookup uses a `SECURITY DEFINER` SQL function so the foreign
+   * tenant rows on the `tenants` table are visible to the lead-gen
+   * caller without weakening the tenants RLS policy.
+   */
+  listGrantedAdviceFirms: authedProcedure.query(async ({ ctx }) => {
+    if (!isMarketingRole(ctx.user.role)) return [];
+    const rows = (await ctx.db.execute(
+      sql`SELECT id, slug, display_name AS "displayName"
+            FROM app_list_granted_advice_firms(${ctx.tenant.id}::uuid)`,
+    )) as unknown as Array<{ id: string; slug: string; displayName: string }>;
+    return rows;
+  }),
 });

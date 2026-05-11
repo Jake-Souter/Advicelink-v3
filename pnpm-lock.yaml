@@ -122,12 +122,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@advicelink/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@advicelink/api':
         specifier: workspace:*
         version: link:../api
       '@advicelink/branding':
         specifier: workspace:*
         version: link:../../packages/branding
+      '@advicelink/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@advicelink/ui':
         specifier: workspace:*
         version: link:../../packages/ui
