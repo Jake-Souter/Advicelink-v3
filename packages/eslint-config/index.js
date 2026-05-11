@@ -66,11 +66,7 @@ export default tseslint.config(
   // CLI scripts (migrate, seed, ad-hoc ops) and the boot file print
   // human-readable progress; structured Pino logs aren't appropriate there.
   {
-    files: [
-      '**/cli/**/*.{ts,js}',
-      '**/scripts/**/*.{ts,js}',
-      '**/src/index.{ts,js}',
-    ],
+    files: ['**/cli/**/*.{ts,js}', '**/scripts/**/*.{ts,js}', '**/src/index.{ts,js}'],
     rules: {
       'no-console': 'off',
     },

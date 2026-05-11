@@ -3,12 +3,7 @@ import { eq, sql as drSql } from 'drizzle-orm';
 import { readyAdviceBrandBundle } from '@advicelink/branding';
 
 import { env } from '../config/env.js';
-import {
-  createDbClient,
-  withPlatformAdmin,
-  type Db,
-  type DbClient,
-} from '../client.js';
+import { createDbClient, withPlatformAdmin, type Db, type DbClient } from '../client.js';
 import {
   teamMemberships,
   teams,
@@ -42,8 +37,7 @@ import {
 
 const READY_ADVICE_SLUG = 'ready-advice';
 
-const BOOT_ADMIN_FIREBASE_UID =
-  env.FIREBASE_BOOT_ADMIN_UID ?? 'firebase-uid-placeholder-rotate-me';
+const BOOT_ADMIN_FIREBASE_UID = env.FIREBASE_BOOT_ADMIN_UID ?? 'firebase-uid-placeholder-rotate-me';
 const BOOT_ADMIN_EMAIL = env.FIREBASE_BOOT_ADMIN_EMAIL ?? 'platform-admin@readyadvice.local';
 const BOOT_ADMIN_DISPLAY_NAME = env.FIREBASE_BOOT_ADMIN_DISPLAY_NAME ?? 'Platform Super Admin';
 
@@ -186,6 +180,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.stack ?? err.message : err);
+  console.error(err instanceof Error ? (err.stack ?? err.message) : err);
   process.exit(1);
 });

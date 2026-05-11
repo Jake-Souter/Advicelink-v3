@@ -16,9 +16,4 @@ export const dbClient: DbClient = createDbClient(env.DATABASE_URL, {
 });
 
 /** Re-export the helpers so feature services can stay on a single import path. */
-export {
-  withTenantContext,
-  withPlatformAdmin,
-  type TenantContext,
-  type Db,
-} from '@advicelink/db';
+export { withTenantContext, withPlatformAdmin, type TenantContext, type Db } from '@advicelink/db';

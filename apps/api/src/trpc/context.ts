@@ -48,9 +48,7 @@ function extractBearer(authHeader: string | string[] | undefined): string | unde
 }
 
 export function createContextFactory({ rootLogger }: CreateContextDeps) {
-  return async function createContext({
-    req,
-  }: CreateFastifyContextOptions): Promise<BaseContext> {
+  return async function createContext({ req }: CreateFastifyContextOptions): Promise<BaseContext> {
     const reqId = (req.headers['x-request-id'] as string | undefined) ?? randomUUID();
     const tenantSlug = extractTenantSlug(req.raw.url);
     const rawIdToken = extractBearer(req.headers.authorization);

@@ -33,7 +33,11 @@ const tailwindPreset: Partial<Config> = {
         selection: colors.selection,
       },
       spacing: space,
-      width: { sidebar: size.sidebar.width, card: size.card.maxWidth },
+      width: {
+        sidebar: size.sidebar.width,
+        card: size.card.maxWidth,
+        loginCard: size.loginCard.maxWidth,
+      },
       height: { navItem: size.navItem.height, tableRow: size.table.rowHeight },
       fontFamily: {
         sans: [typography.fontFamily.sans],

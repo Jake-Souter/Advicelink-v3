@@ -47,18 +47,14 @@ async function main(): Promise<void> {
       );
     `);
 
-    const files = (await readdir(migrationsDir))
-      .filter((f) => /^\d{4}_.+\.sql$/.test(f))
-      .sort();
+    const files = (await readdir(migrationsDir)).filter((f) => /^\d{4}_.+\.sql$/.test(f)).sort();
 
     if (files.length === 0) {
       console.log('No migrations found in', migrationsDir);
       return;
     }
 
-    const applied = await sql<
-      MigrationRow[]
-    >`SELECT id, checksum FROM _advicelink_migrations`;
+    const applied = await sql<MigrationRow[]>`SELECT id, checksum FROM _advicelink_migrations`;
     const appliedById = new Map(applied.map((row) => [row.id, row.checksum]));
 
     for (const file of files) {
@@ -97,6 +93,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.stack ?? err.message : err);
+  console.error(err instanceof Error ? (err.stack ?? err.message) : err);
   process.exit(1);
 });

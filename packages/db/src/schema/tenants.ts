@@ -16,13 +16,19 @@ import { tenantStatus } from './enums.js';
  * cron worker during dual-write windows.
  */
 export const tenants = pgTable('tenants', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   slug: text('slug').notNull().unique(),
   displayName: text('display_name').notNull(),
   primaryDomain: text('primary_domain'),
   status: tenantStatus('status').notNull().default('active'),
-  brandBundle: jsonb('brand_bundle').notNull().default(sql`'{}'::jsonb`),
-  featureFlags: jsonb('feature_flags').notNull().default(sql`'{}'::jsonb`),
+  brandBundle: jsonb('brand_bundle')
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  featureFlags: jsonb('feature_flags')
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   encKeyVersion: integer('enc_key_version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

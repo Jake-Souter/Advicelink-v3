@@ -19,10 +19,7 @@ const schema = z.object({
   // Maps to postgres-js's `ssl` option. `false` disables TLS entirely
   // (the only sensible value for `localhost` testing), `prefer` opportunistic,
   // `require` mandatory. Railway's TCP-proxy supports `prefer`/`require`.
-  DATABASE_SSL: z
-    .enum(['false', 'prefer', 'require'])
-    .optional()
-    .default('prefer'),
+  DATABASE_SSL: z.enum(['false', 'prefer', 'require']).optional().default('prefer'),
   // Boot-admin overrides for `db:seed`. The seed inserts a single
   // `platform_super_admin` row so WP-3 (auth + tRPC) has something to log
   // into in dev. Set these to your real Firebase UID + email if you want

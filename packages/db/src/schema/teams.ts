@@ -18,15 +18,21 @@ import { users } from './users.js';
 export const teams = pgTable(
   'teams',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     type: teamType('type').notNull(),
     brandOverrides: jsonb('brand_overrides'),
-    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
-    licensee: jsonb('licensee').notNull().default(sql`'{}'::jsonb`),
+    config: jsonb('config')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    licensee: jsonb('licensee')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),

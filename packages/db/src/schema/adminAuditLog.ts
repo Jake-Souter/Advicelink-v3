@@ -19,13 +19,17 @@ import { users } from './users.js';
 export const adminAuditLog = pgTable(
   'admin_audit_log',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     affectedTenantId: uuid('affected_tenant_id').references(() => tenants.id, {
       onDelete: 'set null',
     }),
     actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
     action: text('action').notNull(),
-    payload: jsonb('payload').notNull().default(sql`'{}'::jsonb`),
+    payload: jsonb('payload')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

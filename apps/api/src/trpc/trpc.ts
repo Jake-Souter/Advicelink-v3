@@ -6,10 +6,7 @@ import type { Role } from '@advicelink/rbac';
 import type { Db } from '@advicelink/db';
 
 import { FirebaseAuthError, verifyIdToken } from '../auth/firebase.js';
-import {
-  resolveTenantContext,
-  type ResolvedTenantUser,
-} from './middleware/resolveTenant.js';
+import { resolveTenantContext, type ResolvedTenantUser } from './middleware/resolveTenant.js';
 import { withTenantContext } from '../db/index.js';
 import type { BaseContext } from './context.js';
 import { expandAllowList } from '@advicelink/rbac';
@@ -87,9 +84,10 @@ const authMiddleware = middleware(async ({ ctx, next, type, path }) => {
   } catch (err) {
     if (err instanceof FirebaseAuthError) {
       throw new TRPCError({
-        code: err.code === 'expired_token' || err.code === 'revoked_token'
-          ? 'UNAUTHORIZED'
-          : 'UNAUTHORIZED',
+        code:
+          err.code === 'expired_token' || err.code === 'revoked_token'
+            ? 'UNAUTHORIZED'
+            : 'UNAUTHORIZED',
         message: err.message,
         cause: err,
       });

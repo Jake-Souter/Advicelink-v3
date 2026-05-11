@@ -149,7 +149,10 @@ describe.skipIf(skip)('RLS contract', () => {
     // Open a fresh transaction WITHOUT setting any GUCs. Even though A and B
     // exist, RLS treats the principal as nobody and yields nothing.
     const rows = await withNoContext(client, (tx) =>
-      tx.select().from(users).where(drSql`tenant_id IN (${tenantAId}, ${tenantBId})`),
+      tx
+        .select()
+        .from(users)
+        .where(drSql`tenant_id IN (${tenantAId}, ${tenantBId})`),
     );
     expect(rows).toEqual([]);
   });

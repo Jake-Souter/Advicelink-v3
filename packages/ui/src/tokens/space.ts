@@ -19,4 +19,5 @@ export const size = {
   navItem: { height: '2.25rem' /* 36px */ },
   table: { rowHeight: '3rem' /* 48px */ },
   card: { maxWidth: '80rem' /* 1280px */ },
+  loginCard: { maxWidth: '26rem' /* 416px */ },
 } as const;

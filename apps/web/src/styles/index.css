@@ -16,11 +16,178 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Splash placeholder — replaced by real <AppShell> semantic component in WP-3. */
+/*
+ * `[data-page]` selectors keep page-level layout out of the route TSX
+ * files (REBUILD_PLAN §11.6.1 — routes are pure layout composition).
+ * Every value below is sourced from the design token preset so the
+ * "no raw hex/px outside tokens" rule (.cursor/rules) holds.
+ */
+
 [data-page='splash'] {
   min-height: 100vh;
   align-items: center;
   justify-content: center;
   text-align: center;
+  padding: theme('spacing.6');
+  color: theme('colors.text.secondary');
+}
+
+[data-page='login'] {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: theme('spacing.6');
+  background:
+    radial-gradient(
+      circle at top,
+      var(--ui-color-brand-primary-subtle),
+      theme('colors.surface.base') 70%
+    );
+}
+
+[data-login-card] {
+  width: min(theme('width.loginCard'), 100%);
+  background-color: theme('colors.surface.raised');
+  border: 1px solid theme('colors.border.subtle');
+  border-radius: theme('borderRadius.lg');
+  padding: theme('spacing.8');
+  box-shadow: theme('boxShadow.lg');
+}
+
+[data-login-header] h1 {
+  font-family: theme('fontFamily.display');
+  font-weight: theme('fontWeight.semibold');
+  font-size: theme('fontSize.xl');
+  color: theme('colors.text.primary');
+  text-align: center;
+}
+
+[data-field] {
+  display: flex;
+  flex-direction: column;
+  gap: theme('spacing.1');
+  font-size: theme('fontSize.sm');
+  color: theme('colors.text.secondary');
+}
+
+[data-field] input {
+  font: inherit;
+  color: theme('colors.text.primary');
+  background-color: theme('colors.surface.raised');
+  border: 1px solid theme('colors.border.strong');
+  border-radius: theme('borderRadius.md');
+  padding: theme('spacing.2') theme('spacing.3');
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+[data-field] input:focus-visible {
+  border-color: var(--ui-color-brand-primary);
+  box-shadow: 0 0 0 3px var(--ui-color-brand-primary-subtle);
+}
+
+[data-field] input:disabled {
+  background-color: theme('colors.surface.sunken');
+  color: theme('colors.text.tertiary');
+}
+
+[data-button='primary'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: theme('spacing.2');
+  background-color: var(--ui-color-brand-primary);
+  color: var(--ui-color-brand-primary-contrast);
+  font-weight: theme('fontWeight.semibold');
+  border: 1px solid transparent;
+  border-radius: theme('borderRadius.md');
+  padding: theme('spacing.3') theme('spacing.4');
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+[data-button='primary']:hover:not(:disabled) {
+  background-color: var(--ui-color-brand-primary-hover);
+}
+
+[data-button='primary']:active:not(:disabled) {
+  background-color: var(--ui-color-brand-primary-pressed);
+}
+
+[data-button='primary']:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+[data-button='secondary'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: theme('spacing.2');
+  background-color: theme('colors.surface.raised');
+  color: theme('colors.text.primary');
+  font-weight: theme('fontWeight.medium');
+  border: 1px solid theme('colors.border.strong');
+  border-radius: theme('borderRadius.md');
+  padding: theme('spacing.3') theme('spacing.4');
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+[data-button='secondary']:hover:not(:disabled) {
+  background-color: theme('colors.surface.sunken');
+}
+
+[data-button='secondary']:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+[data-login-divider] {
+  display: flex;
+  align-items: center;
+  gap: theme('spacing.3');
+  color: theme('colors.text.tertiary');
+  font-size: theme('fontSize.xs');
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+[data-login-divider]::before,
+[data-login-divider]::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: theme('colors.border.subtle');
+}
+
+[data-login-error] {
+  background-color: theme('colors.state.dangerSurface');
+  color: theme('colors.state.danger');
+  border-radius: theme('borderRadius.md');
+  padding: theme('spacing.2') theme('spacing.3');
+  font-size: theme('fontSize.sm');
+}
+
+[data-page='home'] {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: theme('spacing.10');
+  text-align: center;
+}
+
+[data-page='home'] h1 {
+  font-family: theme('fontFamily.display');
+  font-weight: theme('fontWeight.semibold');
+  font-size: theme('fontSize.2xl');
+  color: var(--ui-color-brand-primary);
+}
+
+[data-tenant-loading='true'],
+[data-tenant-error='true'] {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
   color: theme('colors.text.secondary');
 }

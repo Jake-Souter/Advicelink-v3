@@ -36,11 +36,7 @@ export async function resolveTenantContext(
   { firebaseUid, tenantSlug }: ResolveTenantInput,
 ): Promise<ResolvedTenantUser> {
   return withPlatformAdmin(client, async (tx) => {
-    const [tenant] = await tx
-      .select()
-      .from(tenants)
-      .where(eq(tenants.slug, tenantSlug))
-      .limit(1);
+    const [tenant] = await tx.select().from(tenants).where(eq(tenants.slug, tenantSlug)).limit(1);
     if (!tenant) {
       throw new TRPCError({
         code: 'NOT_FOUND',
