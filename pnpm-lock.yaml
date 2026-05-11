@@ -158,6 +158,9 @@ importers:
       firebase:
         specifier: ^11.1.0
         version: 11.10.0
+      lucide-react:
+        specifier: ^1.14.0
+        version: 1.14.0(react@19.2.6)
       react:
         specifier: ^19.0.0
         version: 19.2.6

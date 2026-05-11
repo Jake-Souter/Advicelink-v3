@@ -11,5 +11,22 @@ export type {
   SpacerProps,
 } from './primitives/layout.js';
 
-// Higher layers (atoms, molecules, semantic) are added in their respective
-// work packages. See REBUILD_PLAN §11.6.3 for the layer hierarchy.
+/*
+ * Layer-4 semantic surfaces. These wrap the shadcn-derived Layer-2 atoms
+ * (in `./components/ui/`) and are the only sidebar/breadcrumb entry-points
+ * apps should import — see `.cursor/rules/design-system.mdc` for the
+ * layering rule.
+ */
+export { AppShell } from './semantic/AppShell.js';
+export type {
+  AppShellProps,
+  AppShellBrand,
+  AppShellUser,
+  AppShellNavGroup,
+  AppShellNavItem,
+  AppShellNavSubItem,
+  AppShellLinkComponent,
+  AppShellLinkProps,
+} from './semantic/AppShell.js';
+export { Breadcrumbs } from './semantic/Breadcrumbs.js';
+export type { BreadcrumbsProps, BreadcrumbItemData } from './semantic/Breadcrumbs.js';

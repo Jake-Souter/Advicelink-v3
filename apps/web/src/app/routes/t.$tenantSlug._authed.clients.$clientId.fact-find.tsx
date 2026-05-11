@@ -1,7 +1,9 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState, type ReactElement } from 'react';
+import { ClipboardList } from 'lucide-react';
 import { z } from 'zod';
 
+import type { AppShellNavGroup, BreadcrumbItemData } from '@advicelink/ui';
 import {
   factFindSectionSchemas,
   type FactFindSectionId,
@@ -77,16 +79,76 @@ function FactFindPage(): ReactElement {
 
   const [lockError, setLockError] = useState<string | null>(null);
 
+  function navigateToSection(next: FactFindSectionId): void {
+    void navigate({
+      to: '/t/$tenantSlug/clients/$clientId/fact-find',
+      params: { tenantSlug, clientId },
+      search: { section: next },
+    });
+  }
+
+  // Build the Fact Find sub-nav for the sidebar — one collapsible
+  // "Fact Find" entry per page-meta group, each with its sections as
+  // active-aware child links. The data is derived before the early
+  // returns so loading/error views still get the same shell shape.
+  const factFindNavGroup = useMemo<AppShellNavGroup>(() => {
+    return {
+      id: 'fact-find',
+      label: 'Fact Find',
+      items: SECTION_GROUPS.map((group) => {
+        const sections = SECTION_META.filter((s) => s.group === group);
+        const activeInGroup = sections.some((s) => s.id === section);
+        return {
+          id: `ff-group-${group}`,
+          label: group,
+          to: `/t/${tenantSlug}/clients/${clientId}/fact-find`,
+          icon: ClipboardList,
+          isActive: activeInGroup,
+          defaultOpen: activeInGroup,
+          items: sections.map((s) => ({
+            id: s.id,
+            label: s.label,
+            to: `/t/${tenantSlug}/clients/${clientId}/fact-find?section=${s.id}`,
+            isActive: s.id === section,
+            onSelect: () => navigateToSection(s.id),
+          })),
+        };
+      }),
+    };
+  }, [section, tenantSlug, clientId]);
+
+  const breadcrumbs = useMemo<BreadcrumbItemData[]>(() => {
+    const displayName = load.data?.meta.displayName ?? '(unnamed)';
+    const sectionLabel = SECTION_META.find((s) => s.id === section)?.label ?? 'Fact Find';
+    return [
+      { id: 'clients', label: 'Clients', to: `/t/${tenantSlug}/clients` },
+      {
+        id: 'client',
+        label: displayName,
+        to: `/t/${tenantSlug}/clients/${clientId}/fact-find`,
+      },
+      { id: 'section', label: `Fact Find · ${sectionLabel}` },
+    ];
+  }, [load.data?.meta.displayName, section, tenantSlug, clientId]);
+
   if (load.isPending) {
     return (
-      <AppShell tenantSlug={tenantSlug}>
+      <AppShell
+        tenantSlug={tenantSlug}
+        extraNavGroups={[factFindNavGroup]}
+        breadcrumbs={breadcrumbs}
+      >
         <p>Loading Fact Find…</p>
       </AppShell>
     );
   }
   if (load.isError) {
     return (
-      <AppShell tenantSlug={tenantSlug}>
+      <AppShell
+        tenantSlug={tenantSlug}
+        extraNavGroups={[factFindNavGroup]}
+        breadcrumbs={breadcrumbs}
+      >
         <p data-banner data-tone="danger" role="alert">
           {load.error.message}
         </p>
@@ -98,14 +160,6 @@ function FactFindPage(): ReactElement {
   const isLocked = meta.factFindLockedAt != null;
   const factsBullets = computeFactsBullets(sections.personal as Personal | undefined);
 
-  function navigateToSection(next: FactFindSectionId): void {
-    void navigate({
-      to: '/t/$tenantSlug/clients/$clientId/fact-find',
-      params: { tenantSlug, clientId },
-      search: { section: next },
-    });
-  }
-
   async function handleSave(sectionId: FactFindSectionId, parsed: unknown): Promise<void> {
     await upsert.mutateAsync({ clientId, sectionId, payload: parsed });
   }
@@ -116,55 +170,19 @@ function FactFindPage(): ReactElement {
   }
 
   return (
-    <div data-page="fact-find">
-      <aside data-fact-find-nav>
-        <header>
-          <h2>{meta.displayName || 'Fact Find'}</h2>
-          <p>
-            <Link
-              to="/t/$tenantSlug/clients"
-              params={{ tenantSlug }}
-              data-button="ghost"
-              style={{ paddingLeft: 0 }}
-            >
-              ← Back to clients
-            </Link>
-          </p>
-        </header>
-
-        {SECTION_GROUPS.map((group) => (
-          <div key={group}>
-            <h2 style={{ marginBottom: '0.5rem' }}>{group}</h2>
-            <ul>
-              {SECTION_META.filter((s) => s.group === group).map((s) => (
-                <li key={s.id}>
-                  <a
-                    href="#"
-                    data-active={s.id === section}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigateToSection(s.id);
-                    }}
-                  >
-                    <span>{s.label}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-
-        <div style={{ marginTop: 'auto' }}>
+    <AppShell tenantSlug={tenantSlug} extraNavGroups={[factFindNavGroup]} breadcrumbs={breadcrumbs}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ margin: 0 }}>Fact Find</h1>
+        <div>
           {isLocked ? (
-            <p data-banner data-tone="success">
-              Fact Find locked at {meta.factFindLockedAt?.toLocaleString('en-AU')}
+            <p data-banner data-tone="success" style={{ margin: 0 }}>
+              Locked at {meta.factFindLockedAt?.toLocaleString('en-AU')}
             </p>
           ) : (
             <>
               <button
                 type="button"
                 data-button="primary"
-                style={{ width: '100%' }}
                 onClick={handleLock}
                 disabled={lock.isPending}
               >
@@ -178,35 +196,18 @@ function FactFindPage(): ReactElement {
             </>
           )}
         </div>
-      </aside>
+      </header>
 
-      <main data-fact-find-main>
-        <header style={{ marginBottom: '1.5rem' }}>
-          <Link
-            to="/t/$tenantSlug/clients"
-            params={{ tenantSlug }}
-            data-button="ghost"
-            style={{ marginRight: '0.5rem' }}
-          >
-            Clients
-          </Link>
-          <span style={{ color: 'var(--text-tertiary, #98A2B3)' }}>/</span>
-          <span style={{ marginLeft: '0.5rem' }}>{meta.displayName || '(unnamed)'}</span>
-        </header>
-
-        <h1>Fact Find</h1>
-
-        <SectionEditor
-          sectionId={section}
-          serverSections={sections}
-          onSave={(parsed) => handleSave(section, parsed)}
-          isLocked={isLocked}
-          clientId={clientId}
-          clientDisplayName={meta.displayName || '(unnamed)'}
-          factsBullets={factsBullets}
-        />
-      </main>
-    </div>
+      <SectionEditor
+        sectionId={section}
+        serverSections={sections}
+        onSave={(parsed) => handleSave(section, parsed)}
+        isLocked={isLocked}
+        clientId={clientId}
+        clientDisplayName={meta.displayName || '(unnamed)'}
+        factsBullets={factsBullets}
+      />
+    </AppShell>
   );
 }
 

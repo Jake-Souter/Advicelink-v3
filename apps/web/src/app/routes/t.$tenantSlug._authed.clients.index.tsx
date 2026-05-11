@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
 
+import type { BreadcrumbItemData } from '@advicelink/ui';
+
 import { AppShell } from '../components/AppShell';
 import { trpc } from '../../lib/trpc';
 
@@ -23,10 +25,12 @@ function ClientsIndexPage(): ReactElement {
   const { tenantSlug } = Route.useParams();
   const list = trpc.clients.list.useQuery({ limit: 100 });
 
+  const breadcrumbs: BreadcrumbItemData[] = [{ id: 'clients', label: 'Clients' }];
+
   return (
-    <AppShell tenantSlug={tenantSlug}>
-      <header data-app-topbar>
-        <h1>Clients</h1>
+    <AppShell tenantSlug={tenantSlug} breadcrumbs={breadcrumbs}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ margin: 0 }}>Clients</h1>
         <Link to="/t/$tenantSlug/clients/new" params={{ tenantSlug }} data-button="primary">
           New client
         </Link>

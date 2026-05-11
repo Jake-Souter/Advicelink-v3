@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState, type FormEvent, type ReactElement } from 'react';
 
+import type { BreadcrumbItemData } from '@advicelink/ui';
+
 import { AppShell } from '../components/AppShell';
 import { Field } from '../forms/Field';
 import { trpc } from '../../lib/trpc';
@@ -77,10 +79,15 @@ function NewClientPage(): ReactElement {
     );
   }
 
+  const breadcrumbs: BreadcrumbItemData[] = [
+    { id: 'clients', label: 'Clients', to: `/t/${tenantSlug}/clients` },
+    { id: 'new', label: 'New client' },
+  ];
+
   return (
-    <AppShell tenantSlug={tenantSlug}>
-      <header data-app-topbar>
-        <h1>New client</h1>
+    <AppShell tenantSlug={tenantSlug} breadcrumbs={breadcrumbs}>
+      <header>
+        <h1 style={{ margin: 0 }}>New client</h1>
       </header>
 
       {whoami.isPending ? (
