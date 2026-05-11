@@ -7,7 +7,12 @@ import type { UserRole } from './schema/enums.js';
 
 export type Schema = typeof schema;
 export type Db = PostgresJsDatabase<Schema>;
-export type DbClient = { sql: Sql; db: Db };
+export type DbClient = {
+  sql: Sql;
+  db: Db;
+  /** Optional master key for the per-tenant TFN encryption helpers. */
+  tfnMasterKey?: string;
+};
 
 export interface CreateDbClientOptions {
   /** TCP pool size. App processes use 10; CLIs use 1. */
@@ -20,6 +25,16 @@ export interface CreateDbClientOptions {
   connectTimeout?: number;
   /** Idle timeout (seconds). */
   idleTimeout?: number;
+  /**
+   * Master key for `pgcrypto`-based TFN encryption (REBUILD_PLAN §7.8 /
+   * §19.16). When provided, every transaction opened via
+   * `withTenantContext` / `withPlatformAdmin` sets the
+   * `app.tfn_master_key` GUC so the `app_encrypt_tfn` /
+   * `app_decrypt_tfn` SQL helpers can derive the per-tenant key. Omit
+   * to disable encryption support — any call into the helpers will
+   * then throw, which is the right failure mode for non-prod tooling.
+   */
+  tfnMasterKey?: string;
 }
 
 /**
@@ -45,7 +60,7 @@ export function createDbClient(databaseUrl: string, options: CreateDbClientOptio
     transform: { undefined: null },
   });
   const db = drizzle(sqlClient, { schema, logger: false });
-  return { sql: sqlClient, db };
+  return { sql: sqlClient, db, tfnMasterKey: options.tfnMasterKey };
 }
 
 /** Identity payload set as Postgres GUCs for the lifetime of one transaction. */
@@ -85,6 +100,9 @@ export async function withTenantContext<T>(
     await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true)`);
     await tx.execute(sql`SELECT set_config('app.current_user_id', ${ctx.userId}, true)`);
     await tx.execute(sql`SELECT set_config('app.current_user_role', ${ctx.userRole}, true)`);
+    if (client.tfnMasterKey) {
+      await tx.execute(sql`SELECT set_config('app.tfn_master_key', ${client.tfnMasterKey}, true)`);
+    }
     return fn(tx);
   });
 }
@@ -113,6 +131,9 @@ export async function withPlatformAdmin<T>(
       await tx.execute(sql`SELECT set_config('app.current_user_id', ${options.userId}, true)`);
     }
     await tx.execute(sql`SELECT set_config('app.current_user_role', 'platform_super_admin', true)`);
+    if (client.tfnMasterKey) {
+      await tx.execute(sql`SELECT set_config('app.tfn_master_key', ${client.tfnMasterKey}, true)`);
+    }
     return fn(tx);
   });
 }

@@ -13,8 +13,11 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    // Tests hit Railway's public proxy (high RTT compared to a local DB),
+    // and several scenarios open 5+ short transactions back-to-back to
+    // exercise different role contexts. 60s gives healthy headroom.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     pool: 'forks',
     poolOptions: { forks: { singleFork: true } },
   },

@@ -54,9 +54,71 @@ export const tenantKind = pgEnum('tenant_kind', ['advice', 'lead_gen']);
 
 export const calendarProvider = pgEnum('calendar_provider', ['microsoft', 'google']);
 
+/**
+ * Mirrors `WORKFLOW_STATES` in `packages/workflow/src/states.ts`. Kept
+ * in sync by hand — the workflow package is the single source of truth
+ * for the names, this enum simply teaches Postgres them. RLS on the
+ * `clients` table reads `workflow_state` as an enum column for the
+ * pre-handover SOA-production write window check (REBUILD_PLAN §2.6.3).
+ *
+ * The eslint-disable below is the one legitimate exception to the
+ * `no-restricted-syntax` ban on stringly-typed workflow state arrays:
+ * this IS the bridge declaration that the ban was written to police
+ * the rest of the codebase against. Drift between this list and
+ * `WORKFLOW_STATES` is caught by the workflow tests + the enum
+ * comparison in @advicelink/db's typecheck.
+ */
+/* eslint-disable no-restricted-syntax */
+export const workflowState = pgEnum('workflow_state', [
+  'factFinding',
+  'draftingSOA',
+  'reviewingSOA',
+  'amendingSOA',
+  'presentingSOA',
+  'welcomeCallScheduled',
+  'draftingROAEO',
+  'reviewingROAEO',
+  'implementingAdvice',
+  'insuranceAmendment',
+  'waitingForAR',
+  'dueForAR',
+  'arBooked',
+  'draftingAR',
+  'reviewingAR',
+  'arComplete',
+  'lost',
+]);
+
+/** Mirrors `WORKFLOW_PHASES` in `packages/workflow/src/states.ts`. */
+export const workflowPhase = pgEnum('workflow_phase', [
+  'factFind',
+  'soaProduction',
+  'presentation',
+  'postAdvice',
+  'complete',
+  'waiting',
+  'annualReview',
+  'closed',
+]);
+/* eslint-enable no-restricted-syntax */
+
+/**
+ * Trigger column on `workflow_events`. Mirrors `TransitionTrigger` in
+ * `packages/workflow/src/transitions.ts`.
+ */
+export const transitionTrigger = pgEnum('transition_trigger', [
+  'user',
+  'system',
+  'cron',
+  'webhook',
+]);
+
 export type UserRole = (typeof userRole.enumValues)[number];
 export type TeamType = (typeof teamType.enumValues)[number];
 export type MembershipSeat = (typeof membershipSeat.enumValues)[number];
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
 export type TenantKind = (typeof tenantKind.enumValues)[number];
 export type CalendarProvider = (typeof calendarProvider.enumValues)[number];
+export type WorkflowStateEnum = (typeof workflowState.enumValues)[number];
+export type WorkflowPhaseEnum = (typeof workflowPhase.enumValues)[number];
+export type TransitionTriggerEnum = (typeof transitionTrigger.enumValues)[number];

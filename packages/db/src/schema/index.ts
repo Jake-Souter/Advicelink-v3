@@ -11,5 +11,8 @@ export * from './users.js';
 export * from './teams.js';
 export * from './teamMemberships.js';
 export * from './leadGenGrants.js';
+export * from './clients.js';
+export * from './workflowEvents.js';
+export * from './aiInvocations.js';
 export * from './auditLog.js';
 export * from './adminAuditLog.js';

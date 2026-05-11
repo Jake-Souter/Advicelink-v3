@@ -8,7 +8,15 @@ import {
   type Db,
   type DbClient,
 } from '../src/client.js';
-import { tenants, users, type NewTenant, type NewUser } from '../src/schema/index.js';
+import {
+  clients,
+  leadGenGrants,
+  tenants,
+  users,
+  workflowEvents,
+  type NewTenant,
+  type NewUser,
+} from '../src/schema/index.js';
 
 /**
  * Open a transaction as `app_user` (no GUCs) — what an unauthenticated
@@ -197,5 +205,406 @@ describe.skipIf(skip)('RLS contract', () => {
     );
     const tenantIds = new Set(rows.map((r) => r.tenantId));
     expect(tenantIds).toEqual(new Set([tenantAId, tenantBId]));
+  });
+});
+
+/**
+ * Dual-tenant `clients` RLS contract (WP-5.5 §2.6.3 + WP-6.1).
+ *
+ * Spins up three tenants — a lead-gen agency, the destination advice
+ * firm it has been granted, and an unrelated advice firm — plus a
+ * client owned by lead-gen and destined for the advice firm. Then
+ * proves:
+ *
+ *   1. Both named partner tenants can read the row; the unrelated
+ *      tenant cannot.
+ *   2. Pre-handoff (tenant_id = lead-gen): both partners can write;
+ *      unrelated cannot.
+ *   3. Post-handoff (tenant_id = advice): only the advice tenant can
+ *      write; lead-gen retains read-only access.
+ *   4. The `clients_tenant_is_named_partner` CHECK constraint blocks
+ *      bogus active-owner values.
+ *   5. The `app_clients_sync_phase` trigger keeps `workflow_phase` in
+ *      lockstep with `workflow_state`.
+ *   6. `workflow_events` accepts cross-tenant inserts (advice actor
+ *      writing on a lead-gen-owned client during SOA Production).
+ *   7. TFN encryption round-trips through `app_encrypt_tfn` /
+ *      `app_decrypt_tfn` with a per-tenant key.
+ */
+describe.skipIf(skip)('Clients dual-tenant RLS contract', () => {
+  let client: DbClient;
+  const runSlug = `clients-rls-${process.pid}-${Date.now()}`;
+  let leadGenTenantId = '';
+  let adviceTenantId = '';
+  let strangerTenantId = '';
+  let leadGenUserId = '';
+  let adviceUserId = '';
+  let strangerUserId = '';
+
+  beforeAll(async () => {
+    client = createDbClient(databaseUrl!, {
+      max: 1,
+      applicationName: 'advicelink-clients-rls-test',
+      // Deterministic test-only master key. Real prod key lives in Doppler.
+      tfnMasterKey: 'test-master-key-do-not-use-in-prod',
+    });
+
+    await withPlatformAdmin(client, async (tx) => {
+      const seeded = await tx
+        .insert(tenants)
+        .values([
+          {
+            slug: `${runSlug}-leadgen`,
+            displayName: 'Lead Gen Agency',
+            kind: 'lead_gen',
+          } satisfies NewTenant,
+          {
+            slug: `${runSlug}-advice`,
+            displayName: 'Destination Advice Firm',
+            kind: 'advice',
+          } satisfies NewTenant,
+          {
+            slug: `${runSlug}-stranger`,
+            displayName: 'Unrelated Advice Firm',
+            kind: 'advice',
+          } satisfies NewTenant,
+        ])
+        .returning({ id: tenants.id, slug: tenants.slug });
+      leadGenTenantId = seeded.find((t) => t.slug === `${runSlug}-leadgen`)!.id;
+      adviceTenantId = seeded.find((t) => t.slug === `${runSlug}-advice`)!.id;
+      strangerTenantId = seeded.find((t) => t.slug === `${runSlug}-stranger`)!.id;
+
+      const usersSeeded = await tx
+        .insert(users)
+        .values([
+          {
+            tenantId: leadGenTenantId,
+            firebaseUid: `${runSlug}-leadgen-fbuid`,
+            email: 'leadgen@example.test',
+            displayName: 'Lead Gen User',
+            role: 'lead_gen',
+          } satisfies NewUser,
+          {
+            tenantId: adviceTenantId,
+            firebaseUid: `${runSlug}-advice-fbuid`,
+            email: 'advice@example.test',
+            displayName: 'Advice Adviser',
+            role: 'adviser',
+          } satisfies NewUser,
+          {
+            tenantId: strangerTenantId,
+            firebaseUid: `${runSlug}-stranger-fbuid`,
+            email: 'stranger@example.test',
+            displayName: 'Stranger Adviser',
+            role: 'adviser',
+          } satisfies NewUser,
+        ])
+        .returning({ id: users.id, tenantId: users.tenantId });
+      leadGenUserId = usersSeeded.find((u) => u.tenantId === leadGenTenantId)!.id;
+      adviceUserId = usersSeeded.find((u) => u.tenantId === adviceTenantId)!.id;
+      strangerUserId = usersSeeded.find((u) => u.tenantId === strangerTenantId)!.id;
+
+      await tx.insert(leadGenGrants).values({
+        leadGenTenantId,
+        adviceTenantId,
+        grantedByUserId: adviceUserId,
+      });
+    });
+  });
+
+  afterAll(async () => {
+    if (!client) return;
+    // Cleanup goes through the raw `postgres` superuser connection
+    // because:
+    //   1. The `app_block_audit_delete` trigger on workflow_events
+    //      blocks ANY DELETE — including the CASCADE from `clients`.
+    //      We temporarily disable it. ALTER TABLE requires table
+    //      owner privilege, which `app_user` does not have.
+    //   2. Superusers bypass RLS, so cross-tenant clean-up does not
+    //      fight the dual-tenant policy.
+    // The disable/enable is wrapped in a transaction so a thrown
+    // exception leaves the trigger re-enabled.
+    await client.sql.begin(async (tx) => {
+      await tx.unsafe(`ALTER TABLE workflow_events DISABLE TRIGGER workflow_events_no_delete`);
+      try {
+        await tx.unsafe(
+          `DELETE FROM clients
+                          WHERE tenant_id IN ($1, $2, $3)
+                             OR destination_advice_tenant_id IN ($1, $2, $3)
+                             OR originating_lead_gen_tenant_id IN ($1, $2, $3)`,
+          [leadGenTenantId, adviceTenantId, strangerTenantId],
+        );
+        await tx.unsafe(
+          `DELETE FROM lead_gen_grants
+            WHERE lead_gen_tenant_id = $1 AND advice_tenant_id = $2`,
+          [leadGenTenantId, adviceTenantId],
+        );
+        await tx.unsafe(`DELETE FROM users WHERE tenant_id IN ($1, $2, $3)`, [
+          leadGenTenantId,
+          adviceTenantId,
+          strangerTenantId,
+        ]);
+        await tx.unsafe(`DELETE FROM tenants WHERE id IN ($1, $2, $3)`, [
+          leadGenTenantId,
+          adviceTenantId,
+          strangerTenantId,
+        ]);
+      } finally {
+        await tx.unsafe(`ALTER TABLE workflow_events ENABLE TRIGGER workflow_events_no_delete`);
+      }
+    });
+    await client.sql.end({ timeout: 5 });
+  });
+
+  /** Spin up a fresh lead-gen-owned client for each test. Returns id. */
+  async function createLeadGenOwnedClient(firstName: string, surname: string): Promise<string> {
+    return withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      async (tx) => {
+        const [row] = await tx
+          .insert(clients)
+          .values({
+            tenantId: leadGenTenantId,
+            originatingLeadGenTenantId: leadGenTenantId,
+            destinationAdviceTenantId: adviceTenantId,
+            personal: { firstName, surname },
+            createdBy: leadGenUserId,
+            updatedBy: leadGenUserId,
+          })
+          .returning({ id: clients.id });
+        return row!.id;
+      },
+    );
+  }
+
+  it('lead-gen tenant (active owner) can read its own client', async () => {
+    const id = await createLeadGenOwnedClient('Alice', 'LeadGenRead');
+    const rows = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) => tx.select().from(clients).where(eq(clients.id, id)),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.displayName).toBe('Alice LeadGenRead');
+  });
+
+  it('destination advice tenant can read the lead-gen-owned client (cross-tenant read)', async () => {
+    const id = await createLeadGenOwnedClient('Bob', 'AdviceRead');
+    const rows = await withTenantContext(
+      client,
+      { tenantId: adviceTenantId, userId: adviceUserId, userRole: 'adviser' },
+      (tx) => tx.select().from(clients).where(eq(clients.id, id)),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(id);
+  });
+
+  it('unrelated tenant cannot see the client at all', async () => {
+    const id = await createLeadGenOwnedClient('Carol', 'StrangerRead');
+    const rows = await withTenantContext(
+      client,
+      { tenantId: strangerTenantId, userId: strangerUserId, userRole: 'adviser' },
+      (tx) => tx.select().from(clients).where(eq(clients.id, id)),
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('pre-handoff: advice tenant CAN write to a lead-gen-owned client (SOA Production window)', async () => {
+    const id = await createLeadGenOwnedClient('Dave', 'PreHandoffWrite');
+    const result = await withTenantContext(
+      client,
+      { tenantId: adviceTenantId, userId: adviceUserId, userRole: 'adviser' },
+      (tx) =>
+        tx
+          .update(clients)
+          .set({ workflowState: 'draftingSOA', updatedBy: adviceUserId })
+          .where(eq(clients.id, id))
+          .returning({ id: clients.id, state: clients.workflowState }),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]!.state).toBe('draftingSOA');
+  });
+
+  it('pre-handoff: unrelated tenant CANNOT write', async () => {
+    const id = await createLeadGenOwnedClient('Eve', 'StrangerWrite');
+    const result = await withTenantContext(
+      client,
+      { tenantId: strangerTenantId, userId: strangerUserId, userRole: 'adviser' },
+      (tx) =>
+        tx
+          .update(clients)
+          .set({ workflowState: 'draftingSOA' })
+          .where(eq(clients.id, id))
+          .returning({ id: clients.id }),
+    );
+    // RLS makes the row invisible — the UPDATE matches zero rows
+    // rather than throwing, which is the correct safe behaviour.
+    expect(result).toEqual([]);
+  });
+
+  it('post-handoff: lead-gen retains READ access but loses WRITE access', async () => {
+    const id = await createLeadGenOwnedClient('Frank', 'PostHandoff');
+    // Simulate the recordClientSigned webhook: flip tenant_id to advice in
+    // the same transaction as the workflow advance. We do this through
+    // platform admin to mimic the worker's escape hatch.
+    await withPlatformAdmin(client, async (tx) => {
+      await tx
+        .update(clients)
+        .set({ tenantId: adviceTenantId, workflowState: 'welcomeCallScheduled' })
+        .where(eq(clients.id, id));
+    });
+
+    // Lead-gen can still SELECT (it remains a named partner)
+    const seenByLeadGen = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) => tx.select().from(clients).where(eq(clients.id, id)),
+    );
+    expect(seenByLeadGen).toHaveLength(1);
+
+    // …but cannot UPDATE (no longer the active owner; not in pre-
+    // handoff write window either)
+    const writeResult = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) =>
+        tx
+          .update(clients)
+          .set({ workflowState: 'lost', updatedBy: leadGenUserId })
+          .where(eq(clients.id, id))
+          .returning({ id: clients.id }),
+    );
+    expect(writeResult).toEqual([]);
+
+    // Advice can both read and write now
+    const writeAsAdvice = await withTenantContext(
+      client,
+      { tenantId: adviceTenantId, userId: adviceUserId, userRole: 'adviser' },
+      (tx) =>
+        tx
+          .update(clients)
+          .set({ workflowState: 'implementingAdvice', updatedBy: adviceUserId })
+          .where(eq(clients.id, id))
+          .returning({ id: clients.id, state: clients.workflowState }),
+    );
+    expect(writeAsAdvice[0]!.state).toBe('implementingAdvice');
+  });
+
+  it('CHECK constraint blocks an active-owner that is neither named partner', async () => {
+    await expect(
+      withPlatformAdmin(client, (tx) =>
+        tx.insert(clients).values({
+          tenantId: strangerTenantId, // not lead-gen, not destination — illegal
+          originatingLeadGenTenantId: leadGenTenantId,
+          destinationAdviceTenantId: adviceTenantId,
+          personal: { firstName: 'Bad', surname: 'Owner' },
+        }),
+      ),
+    ).rejects.toThrow(/clients_tenant_is_named_partner|check constraint/i);
+  });
+
+  it('app_clients_sync_phase trigger keeps workflow_phase in lockstep', async () => {
+    const id = await createLeadGenOwnedClient('Grace', 'PhaseSync');
+    // Insert defaulted to factFinding -> factFind
+    const inserted = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) => tx.select().from(clients).where(eq(clients.id, id)),
+    );
+    expect(inserted[0]!.workflowState).toBe('factFinding');
+    expect(inserted[0]!.workflowPhase).toBe('factFind');
+
+    // UPDATE workflow_state to a state in a different phase; phase must follow.
+    await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) =>
+        tx
+          .update(clients)
+          .set({
+            workflowState: 'reviewingSOA',
+            // Pass a deliberately wrong phase to prove the trigger overrides it.
+            workflowPhase: 'factFind',
+          })
+          .where(eq(clients.id, id)),
+    );
+
+    const after = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) => tx.select().from(clients).where(eq(clients.id, id)),
+    );
+    expect(after[0]!.workflowState).toBe('reviewingSOA');
+    expect(after[0]!.workflowPhase).toBe('soaProduction');
+  });
+
+  it('workflow_events accepts a cross-tenant insert (advice actor on lead-gen-owned row)', async () => {
+    const id = await createLeadGenOwnedClient('Henry', 'XTenantEvent');
+    await withTenantContext(
+      client,
+      { tenantId: adviceTenantId, userId: adviceUserId, userRole: 'adviser' },
+      async (tx) => {
+        await tx.insert(workflowEvents).values({
+          tenantId: leadGenTenantId, // active owner of the row
+          actorTenantId: adviceTenantId, // who fired it
+          clientId: id,
+          fromState: 'reviewingSOA',
+          toState: 'amendingSOA',
+          transitionName: 'requestSOAChanges',
+          trigger: 'user',
+          actorId: adviceUserId,
+        });
+      },
+    );
+
+    // Lead-gen can read its own audit row
+    const seen = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) => tx.select().from(workflowEvents).where(eq(workflowEvents.clientId, id)),
+    );
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.transitionName).toBe('requestSOAChanges');
+  });
+
+  it('TFN encryption round-trips through the per-tenant SQL helpers', async () => {
+    const id = await createLeadGenOwnedClient('Iris', 'TfnEncrypt');
+    const plain = '123456782';
+
+    await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      async (tx) => {
+        await tx.execute(
+          drSql`UPDATE clients
+                   SET tfn_encrypted = app_encrypt_tfn(tenant_id, ${plain})
+                 WHERE id = ${id}`,
+        );
+      },
+    );
+
+    // Read raw ciphertext
+    const ciphertext = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) => tx.select({ tfn: clients.tfnEncrypted }).from(clients).where(eq(clients.id, id)),
+    );
+    expect(ciphertext[0]!.tfn).toMatch(/^-----BEGIN PGP MESSAGE-----/);
+    expect(ciphertext[0]!.tfn).not.toContain(plain);
+
+    // Round-trip
+    const decrypted = await withTenantContext(
+      client,
+      { tenantId: leadGenTenantId, userId: leadGenUserId, userRole: 'lead_gen' },
+      (tx) =>
+        tx.execute(
+          drSql`SELECT app_decrypt_tfn(tenant_id, tfn_encrypted) AS tfn
+                  FROM clients WHERE id = ${id}`,
+        ),
+    );
+    // postgres-js returns a result-like object; just the first row's tfn.
+    const row = (decrypted as unknown as Array<{ tfn: string | null }>)[0];
+    expect(row?.tfn).toBe(plain);
   });
 });
