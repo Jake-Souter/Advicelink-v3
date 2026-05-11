@@ -58,6 +58,17 @@ Layer 6  Routes          apps/web/src/app/routes/**   (composition + data)
 - `shadcn/ui` — always wrapped by a semantic component before pages use it.
 - Brand colours come from the resolved tenant brand bundle via `<BrandThemeProvider>` (CSS variables on `:root`). Never hard-code a tenant colour.
 
+## Tailwind version + token plumbing
+
+- The workspace runs **Tailwind CSS v4** (PostCSS plugin: `@tailwindcss/postcss`). The web app entry CSS is `apps/web/src/styles/index.css`; it imports the canonical token sheet from `@advicelink/ui/styles.css`, then `@import "tailwindcss";`.
+- The legacy v3 token preset (`packages/ui/src/tokens/tailwindPreset.ts` + `apps/web/tailwind.config.ts`) is kept and bridged into v4 via the `@config '../../tailwind.config.ts';` directive. This is the official v4 migration shim.
+- New design tokens go into the `@theme` block in `packages/ui/src/styles/tokens.css` (NOT into the v3 preset). Token names follow v4 namespaces: `--color-*`, `--spacing-*`, `--font-*`, `--font-weight-*`, `--text-*`, `--radius-*`, `--shadow-*`. `@theme` may not be wrapped in a `@layer` import.
+- shadcn install path:
+  1. `pnpm dlx shadcn@latest init` from `packages/ui` — **never** from `apps/web` (would land files in a feature-layer location and violate Rules 1 + 2 above).
+  2. Components land in `packages/ui/src/atoms/<name>/`. Wrap each in a Layer-4 semantic before any feature/route consumes it.
+  3. shadcn-required CSS variables (e.g. `--sidebar-background`, `--primary`, `--muted-foreground`) live in the `@theme` block in `packages/ui/src/styles/tokens.css`. Bind them to the runtime brand vars (`--ui-color-brand-*`) so per-tenant theming still flows through `<BrandThemeProvider>`.
+  4. The shadcn skill is installed at `.agents/skills/shadcn/SKILL.md`; consult it for `data-icon`, `cn()`, `FieldGroup`/`Field`, base-vs-radix, and overlay rules.
+
 ## Storybook is the source of visual truth
 
 Every Layer 1–4 component has stories with controls and a Chromatic baseline. PR-time visual regression must be approved before merge. Stories run with a "Theme switcher" that flips between three example tenant brand bundles.

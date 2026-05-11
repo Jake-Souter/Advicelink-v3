@@ -2211,8 +2211,15 @@ These three rules are enforced by lint and reviewed in every PR:
 Tokens live in `packages/ui/src/tokens/` as plain TypeScript objects, then
 emit:
 
-- A CSS variable sheet injected into `:root` and `[data-theme="dark"]`.
-- A `tailwind.config.ts` preset consumed by `apps/web` and Storybook.
+- A CSS variable sheet (`packages/ui/src/styles/tokens.css`) injected into
+  `:root` and `[data-theme="dark"]`. Under Tailwind v4 this same file
+  carries the `@theme` block — utilities like `bg-surface-base`,
+  `text-text-primary`, `rounded-pill` are generated directly from the
+  tokens declared here.
+- A legacy `tailwind.config.ts` preset (`packages/ui/src/tokens/tailwindPreset.ts`)
+  bridged into v4 via the `@config` directive in `apps/web/src/styles/index.css`.
+  New tokens go straight into the `@theme` block; the preset is held in
+  place only so existing utility class names continue to resolve.
 - A typed token API (`tokens.color.brandPrimary`,
   `tokens.space.cardPadding`) usable from React/JS where Tailwind classes
   cannot reach (e.g. dynamic chart colours).
@@ -2324,11 +2331,16 @@ ESLint rules forbid:
 
 #### 11.6.4 Implementation choices
 
-- **Tailwind CSS** as the styling engine, configured exclusively via the
-  token preset emitted from `packages/ui/src/tokens`.
+- **Tailwind CSS v4** (PostCSS plugin `@tailwindcss/postcss`) as the
+  styling engine. Token registration uses the v4 `@theme` block in
+  `packages/ui/src/styles/tokens.css`; the legacy v3 preset is kept and
+  bridged via `@config` until every utility class has been audited.
 - **shadcn/ui** as the base for atoms/molecules where appropriate, but
   **always wrapped** by a semantic component before pages use them. The
-  raw shadcn export is never imported by feature code.
+  raw shadcn export is never imported by feature code. Install path: run
+  `shadcn` from `packages/ui` so atoms land at `packages/ui/src/atoms/*`,
+  not inside the web app. The shadcn skill at `.agents/skills/shadcn/`
+  is the source of truth for component composition rules.
 - **CSS variables** for any value that must change at runtime per tenant
   (the brand colours, the chosen heading font). Emitted into `:root` by
   the `<BrandThemeProvider>` after resolving the brand bundle (§10.7).
