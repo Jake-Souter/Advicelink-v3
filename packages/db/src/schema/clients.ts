@@ -101,7 +101,10 @@ export const clients = pgTable('clients', {
    */
   nextArDate: date('next_ar_date'),
 
-  // ── Fact Find (12 sections; shapes in @advicelink/schemas / WP-6.2)
+  // ── Fact Find (12 sections; shapes in @advicelink/schemas / WP-6.2).
+  // The 13th historical entry — `recommendations` — was dropped in
+  // WP-7 because recommendations are an SOA Production output, not a
+  // Fact Find input. They now live exclusively under `soa_wizard_data`.
   personal: jsonb('personal')
     .notNull()
     .default(sql`'{}'::jsonb`),
@@ -138,9 +141,6 @@ export const clients = pgTable('clients', {
     .notNull()
     .default(sql`'{}'::jsonb`),
   riskProfile: jsonb('risk_profile')
-    .notNull()
-    .default(sql`'{}'::jsonb`),
-  recommendations: jsonb('recommendations')
     .notNull()
     .default(sql`'{}'::jsonb`),
 

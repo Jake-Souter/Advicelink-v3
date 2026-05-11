@@ -18,7 +18,7 @@ import { loadFactFind } from './load.js';
  * Strategy
  * --------
  * Every save:
- *   1. Loads ALL 13 sections off the row.
+ *   1. Loads ALL 12 sections off the row.
  *   2. Validates the inbound payload against the section's schema.
  *   3. Merges the validated payload into its slot.
  *   4. Runs `deriveAll` over the whole merged set so cross-section
@@ -100,7 +100,7 @@ export async function upsertSection(tx: TxDb, input: UpsertSectionInput) {
 
   // deriveAll only knows about the strict 8-section subset that
   // carries derivations; the other sections (employment / partner /
-  // superannuation / goals / recommendations) are left untouched.
+  // superannuation / goals) are left untouched.
   const derived = deriveAll({
     personal:
       (merged.personal as typeof factFindSectionDefaults.personal) ??
@@ -145,7 +145,6 @@ export async function upsertSection(tx: TxDb, input: UpsertSectionInput) {
       partnerEmployment: merged.partnerEmployment,
       superannuation: merged.superannuation,
       goals: merged.goals,
-      recommendations: merged.recommendations,
       updatedBy: input.actor.id,
       updatedAt: sql`now()`,
     })

@@ -36,7 +36,7 @@ describe('Fact Find section registry', () => {
     }
   });
 
-  it('FACT_FIND_SECTION_IDS contains exactly the 13 expected names', () => {
+  it('FACT_FIND_SECTION_IDS contains exactly the 12 expected names', () => {
     expect([...FACT_FIND_SECTION_IDS]).toEqual([
       'personal',
       'employment',
@@ -50,7 +50,6 @@ describe('Fact Find section registry', () => {
       'beneficiaries',
       'goals',
       'riskProfile',
-      'recommendations',
     ]);
   });
 });

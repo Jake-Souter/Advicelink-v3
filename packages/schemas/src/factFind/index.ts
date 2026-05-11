@@ -18,7 +18,12 @@
  *   9.  beneficiaries
  *  10.  goals
  *  11.  riskProfile
- *  12.  recommendations
+ *
+ * `recommendations` was previously listed here as section 12; it was
+ * removed in WP-7 because recommendations are an SOA Production
+ * output, not a Fact Find input. Their canonical home is
+ * `clients.soa_wizard_data` (shapes will land alongside the SOA
+ * Wizard schemas in WP-8).
  */
 export * from './primitives.js';
 export * from './personal.js';
@@ -32,7 +37,6 @@ export * from './insurance.js';
 export * from './beneficiaries.js';
 export * from './goals.js';
 export * from './riskProfile.js';
-export * from './recommendations.js';
 export * from './derivations.js';
 
 import { assetsDefault, assetsSchema } from './assets.js';
@@ -44,7 +48,6 @@ import { goalsDefault, goalsSchema } from './goals.js';
 import { insuranceDefault, insuranceSchema } from './insurance.js';
 import { liabilitiesDefault, liabilitiesSchema } from './liabilities.js';
 import { personalDefault, personalSchema } from './personal.js';
-import { recommendationsDefault, recommendationsSchema } from './recommendations.js';
 import { riskProfileDefault, riskProfileSchema } from './riskProfile.js';
 import { superannuationDefault, superannuationSchema } from './superannuation.js';
 
@@ -66,7 +69,6 @@ export const FACT_FIND_SECTION_IDS = [
   'beneficiaries',
   'goals',
   'riskProfile',
-  'recommendations',
 ] as const;
 export type FactFindSectionId = (typeof FACT_FIND_SECTION_IDS)[number];
 
@@ -88,7 +90,6 @@ export const factFindSectionSchemas = {
   beneficiaries: beneficiariesSchema,
   goals: goalsSchema,
   riskProfile: riskProfileSchema,
-  recommendations: recommendationsSchema,
 } as const;
 
 /**
@@ -109,5 +110,4 @@ export const factFindSectionDefaults = {
   beneficiaries: beneficiariesDefault,
   goals: goalsDefault,
   riskProfile: riskProfileDefault,
-  recommendations: recommendationsDefault,
 } as const;

@@ -5,7 +5,7 @@ import type { FactFindSectionId } from '@advicelink/schemas';
  * lives in `@advicelink/schemas`; this file just decorates it with
  * UI-facing labels and a lightweight grouping for the nav.
  *
- * The 13 sections roughly map to the §11 spec but are flat in the
+ * The 12 sections roughly map to the §11 spec but are flat in the
  * nav; grouping is a presentation choice only.
  */
 
@@ -14,7 +14,7 @@ export interface SectionMeta {
   label: string;
   description: string;
   /** Group label rendered above the link in the nav. */
-  group: 'About the client' | 'Money' | 'Recommendations';
+  group: 'About the client' | 'Money' | 'Goals & risk';
 }
 
 export const SECTION_META: readonly SectionMeta[] = [
@@ -82,20 +82,14 @@ export const SECTION_META: readonly SectionMeta[] = [
     id: 'goals',
     label: 'Goals',
     description: 'Short and long term goals + AI assist',
-    group: 'Recommendations',
+    group: 'Goals & risk',
   },
   {
     id: 'riskProfile',
     label: 'Risk profile',
     description: 'Six-question risk profile + scoring band',
-    group: 'Recommendations',
-  },
-  {
-    id: 'recommendations',
-    label: 'Recommendations',
-    description: 'High-level recommendation summary',
-    group: 'Recommendations',
+    group: 'Goals & risk',
   },
 ];
 
-export const SECTION_GROUPS = ['About the client', 'Money', 'Recommendations'] as const;
+export const SECTION_GROUPS = ['About the client', 'Money', 'Goals & risk'] as const;

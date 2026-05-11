@@ -53,7 +53,6 @@ const SECTION_TO_COLUMN: Record<FactFindSectionId, keyof Client> = {
   beneficiaries: 'beneficiaries',
   goals: 'goals',
   riskProfile: 'riskProfile',
-  recommendations: 'recommendations',
 };
 
 export async function loadFactFind(tx: TxDb, clientId: string): Promise<LoadedFactFind> {

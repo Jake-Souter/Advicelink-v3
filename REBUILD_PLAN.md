@@ -713,7 +713,11 @@ adviser's primary calendar with the client as attendee), Sync Now.
 ### 6.11 Fact Find — `/clients/$id/fact-find`
 The full client Fact Find. Section side-nav: Personal, Employment, Financial,
 Assets & Liabilities, Superannuation, Contributions, Insurance,
-Beneficiaries, Goals, Risk Profile, Recommendations.
+Beneficiaries, Goals, Risk Profile.
+
+(Recommendations are deliberately NOT a Fact Find section — they are an
+SOA Production output and live under `clients.soa_wizard_data`. The
+mapping was corrected in WP-7.)
 
 A `factFindLocked` flag toggles every input to read-only and shows a banner.
 Once locked, the only way to edit is for an adviser to start a ROA / EO
@@ -963,7 +967,9 @@ insurance                   jsonb
 beneficiaries               jsonb
 goals                       jsonb
 risk_profile                jsonb
-recommendations             jsonb
+-- (the historical `recommendations` column was dropped in WP-7;
+--  recommendations are an SOA Production output and live under
+--  `soa_wizard_data` instead.)
 
 -- wizard outputs
 soa_wizard_data             jsonb  -- one key per SOA Wizard section (§6.12)
@@ -1206,19 +1212,30 @@ on the client record itself.
 }
 ```
 
-#### 7.5.11 `recommendations` JSONB shape (high-level only — detailed per-recommendation rows live under `soa_wizard_data` and `roa_eo_wizard_data`)
+#### 7.5.11 Recommendations are an SOA Production output, not a Fact Find section
+
+Earlier drafts of this plan modelled recommendations as a 13th Fact
+Find JSONB column. WP-7 corrected this: recommendations are produced
+**from** the Fact Find by paraplanners and advisers during SOA /
+ROA-EO production, not collected as part of fact gathering. They live
+exclusively under `clients.soa_wizard_data` (and, for amendments,
+`clients.roa_eo_wizard_data`); the canonical shape lands alongside
+the SOA Wizard schemas in WP-8 and is roughly:
 
 ```ts
 {
-  rolloverStrategy: { items: [{ id, rolloverType, fromFundId, toFundId, ... }] },
-  recommendedInsurance: { covers: [{ ...InsuranceCoverShape, recommendation, importance }] },
+  rolloverStrategy:               { items: [{ id, rolloverType, fromFundId, toFundId, ... }] },
+  recommendedInsurance:           { covers: [{ ...InsuranceCoverShape, recommendation, importance }] },
   amendmentsRecommendedInsurance: { covers: [...] }, // populated only via ROA / EO Wizard runs
-  platformPortfolio: { portfolioType, riskProfile, portfolioId },
-  likeForLikePortfolio: { fundName, investmentOption, fees: {...} },
-  currentPortfolio: { performanceRange, grossReturn, fees: {...}, derived: {...} },
+  platformPortfolio:              { portfolioType, riskProfile, portfolioId },
+  likeForLikePortfolio:           { fundName, investmentOption, fees: {...} },
+  currentPortfolio:               { performanceRange, grossReturn, fees: {...}, derived: {...} },
   notes
 }
 ```
+
+The historical `clients.recommendations` column was dropped in
+migration `0010_drop_clients_recommendations.sql`.
 
 ### 7.6 `clients.implementation_progress` JSONB shape
 
