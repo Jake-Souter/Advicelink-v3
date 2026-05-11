@@ -1,6 +1,12 @@
-@import '@advicelink/ui/styles.css' layer(base);
-
 @import 'tailwindcss';
+/*
+ * Tenant brand defaults — :root CSS variables overwritten at runtime by
+ * <BrandThemeProvider>. Imported AFTER `tailwindcss` (CSS @import order
+ * must precede other statements) but kept out of the legacy `layer(base)`
+ * wrapping that triggered a v3 lint when stale tailwind installs sneak
+ * into the postcss pipeline.
+ */
+@import '@advicelink/ui/styles.css';
 
 @config '../../tailwind.config.ts';
 
