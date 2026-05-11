@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react';
 
+import { Alert, Button, Cluster, Stack } from '@advicelink/ui';
+
 import type { UseDraftSectionResult } from './useDraftSection';
 
 /**
@@ -20,37 +22,28 @@ export interface SaveBarProps<T> {
 
 export function SaveBar<T>({ form }: SaveBarProps<T>): ReactElement {
   return (
-    <>
-      {form.saveError ? (
-        <p data-banner data-tone="danger" role="alert" style={{ marginTop: '1rem' }}>
-          {form.saveError}
-        </p>
-      ) : null}
-      {form.saveSuccessAt && !form.isDirty ? (
-        <p data-banner data-tone="success" style={{ marginTop: '1rem' }}>
-          Saved.
-        </p>
-      ) : null}
-      <div data-form-actions>
-        <button
+    <Stack gap={3}>
+      {form.saveError ? <Alert tone="danger">{form.saveError}</Alert> : null}
+      {form.saveSuccessAt && !form.isDirty ? <Alert tone="success">Saved.</Alert> : null}
+      <Cluster justify="end" gap={2}>
+        <Button
           type="button"
-          data-button="secondary"
+          tone="secondary"
           onClick={form.reset}
           disabled={!form.isDirty || form.isSaving}
         >
           Reset
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          data-button="primary"
           onClick={() => {
             void form.save();
           }}
           disabled={!form.isDirty || form.isSaving}
         >
           {form.isSaving ? 'Saving…' : 'Save section'}
-        </button>
-      </div>
-    </>
+        </Button>
+      </Cluster>
+    </Stack>
   );
 }

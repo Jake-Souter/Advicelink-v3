@@ -1,7 +1,7 @@
 import { Navigate, createFileRoute } from '@tanstack/react-router';
 import { useState, type FormEvent, type ReactElement } from 'react';
 
-import { Stack } from '@advicelink/ui';
+import { Alert, Button, Field, FieldGroup, Input, Stack, Surface } from '@advicelink/ui';
 
 import { useAuth } from '../providers/AuthProvider';
 import { useTenant } from '../providers/TenantProvider';
@@ -16,6 +16,11 @@ import { describeAuthError, signInWithEmail, signInWithGoogle } from '../../lib/
  * On successful sign-in the `AuthProvider` flips its state machine to
  * `signedIn`, the conditional `<Navigate>` at the top of the
  * component fires, and the user lands at `/t/$tenantSlug/home`.
+ *
+ * The login Card is one of the few legitimate uses of `<Surface>`
+ * outside the dashboard — it's a focused authentication panel on a
+ * centred backdrop, not a content section that could live flush
+ * against the inset.
  */
 export const Route = createFileRoute('/t/$tenantSlug/login')({
   component: LoginPage,
@@ -62,20 +67,15 @@ function LoginPage(): ReactElement {
 
   return (
     <main data-page="login">
-      <section data-login-card>
-        <Stack gap={4}>
-          <header data-login-header>
-            <Stack gap={2} align="center">
-              <img src="/ready-advice-logo.png" alt={tenant.displayName} width={220} />
-              <h1>Sign in to {tenant.displayName}</h1>
-            </Stack>
-          </header>
-
-          <form onSubmit={handleEmailSubmit} data-login-form>
-            <Stack gap={3}>
-              <label data-field>
-                <span>Email</span>
-                <input
+      <Surface
+        title={`Sign in to ${tenant.displayName}`}
+        actions={<img src="/ready-advice-logo.png" alt={tenant.displayName} width={140} />}
+      >
+        <form onSubmit={handleEmailSubmit}>
+          <Stack gap={5}>
+            <FieldGroup>
+              <Field label="Email">
+                <Input
                   type="email"
                   autoComplete="email"
                   required
@@ -83,10 +83,9 @@ function LoginPage(): ReactElement {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={submitting}
                 />
-              </label>
-              <label data-field>
-                <span>Password</span>
-                <input
+              </Field>
+              <Field label="Password">
+                <Input
                   type="password"
                   autoComplete="current-password"
                   required
@@ -95,34 +94,28 @@ function LoginPage(): ReactElement {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={submitting}
                 />
-              </label>
-              {errorMessage ? (
-                <p role="alert" data-login-error>
-                  {errorMessage}
-                </p>
-              ) : null}
-              <button type="submit" data-button="primary" disabled={submitting}>
-                {submitting ? 'Signing in…' : 'Sign in'}
-              </button>
-            </Stack>
-          </form>
+              </Field>
+            </FieldGroup>
 
-          <div data-login-divider>
-            <span>or</span>
-          </div>
+            {errorMessage ? <Alert tone="danger">{errorMessage}</Alert> : null}
 
-          <button
-            type="button"
-            data-button="secondary"
-            onClick={() => {
-              void handleGoogleSubmit();
-            }}
-            disabled={submitting}
-          >
-            Continue with Google
-          </button>
-        </Stack>
-      </section>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </Button>
+
+            <Button
+              type="button"
+              tone="secondary"
+              onClick={() => {
+                void handleGoogleSubmit();
+              }}
+              disabled={submitting}
+            >
+              Continue with Google
+            </Button>
+          </Stack>
+        </form>
+      </Surface>
     </main>
   );
 }

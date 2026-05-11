@@ -173,3 +173,32 @@ export function VisuallyHidden({ children }: { children: ReactNode }): ReactNode
     </span>
   );
 }
+
+export interface BoundedProps extends BaseProps {
+  /** Max content width — sm: ~24rem, md: ~36rem, lg: ~42rem, xl: ~48rem, 2xl: ~56rem, 3xl: ~64rem. */
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+}
+
+export const Bounded = forwardRef<HTMLElement, BoundedProps>(function Bounded(
+  { as: Tag = 'div', maxWidth = 'md', className, children, ...rest },
+  ref,
+) {
+  return (
+    <Tag
+      ref={ref}
+      className={clsx(
+        'w-full',
+        maxWidth === 'sm' && 'max-w-sm',
+        maxWidth === 'md' && 'max-w-xl',
+        maxWidth === 'lg' && 'max-w-2xl',
+        maxWidth === 'xl' && 'max-w-3xl',
+        maxWidth === '2xl' && 'max-w-4xl',
+        maxWidth === '3xl' && 'max-w-5xl',
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  );
+});

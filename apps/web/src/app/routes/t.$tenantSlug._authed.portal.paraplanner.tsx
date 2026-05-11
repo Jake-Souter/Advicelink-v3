@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, type ReactElement } from 'react';
 
+import { Alert, Button, PageHeader, Stack } from '@advicelink/ui';
+
 import { AppShell } from '../components/AppShell';
 import { PortalKanban } from '../portals/PortalKanban';
 import { trpc } from '../../lib/trpc';
@@ -41,65 +43,58 @@ function ParaplannerPortalPage(): ReactElement {
 
   return (
     <AppShell tenantSlug={tenantSlug}>
-      <header data-app-topbar>
-        <h1>Paraplanner portal</h1>
-      </header>
-      {actionError ? (
-        <p data-banner data-tone="danger" role="alert" style={{ marginBottom: '1rem' }}>
-          {actionError}
-        </p>
-      ) : null}
-      {portal.isPending ? (
-        <p>Loading…</p>
-      ) : portal.isError ? (
-        <p data-banner data-tone="danger" role="alert">
-          {portal.error.message}
-        </p>
-      ) : (
-        <PortalKanban
-          tenantSlug={tenantSlug}
-          buckets={portal.data}
-          renderCardActions={(row, bucketKey) => {
-            if (bucketKey === 'available') {
-              return (
-                <button
-                  type="button"
-                  data-button="primary"
-                  disabled={claim.isPending}
-                  onClick={() => {
-                    setActionError(null);
-                    claim.mutate(
-                      { clientId: row.id },
-                      { onError: (err) => setActionError(err.message) },
-                    );
-                  }}
-                >
-                  {claim.isPending ? 'Claiming…' : 'Claim'}
-                </button>
-              );
-            }
-            if (bucketKey === 'claimed') {
-              return (
-                <button
-                  type="button"
-                  data-button="ghost"
-                  disabled={release.isPending}
-                  onClick={() => {
-                    setActionError(null);
-                    release.mutate(
-                      { clientId: row.id },
-                      { onError: (err) => setActionError(err.message) },
-                    );
-                  }}
-                >
-                  {release.isPending ? 'Releasing…' : 'Release'}
-                </button>
-              );
-            }
-            return null;
-          }}
-        />
-      )}
+      <PageHeader title="Paraplanner portal" />
+      <Stack gap={4}>
+        {actionError ? <Alert tone="danger">{actionError}</Alert> : null}
+        {portal.isPending ? (
+          <Alert tone="neutral">Loading…</Alert>
+        ) : portal.isError ? (
+          <Alert tone="danger">{portal.error.message}</Alert>
+        ) : (
+          <PortalKanban
+            tenantSlug={tenantSlug}
+            buckets={portal.data}
+            renderCardActions={(row, bucketKey) => {
+              if (bucketKey === 'available') {
+                return (
+                  <Button
+                    type="button"
+                    disabled={claim.isPending}
+                    onClick={() => {
+                      setActionError(null);
+                      claim.mutate(
+                        { clientId: row.id },
+                        { onError: (err) => setActionError(err.message) },
+                      );
+                    }}
+                  >
+                    {claim.isPending ? 'Claiming…' : 'Claim'}
+                  </Button>
+                );
+              }
+              if (bucketKey === 'claimed') {
+                return (
+                  <Button
+                    type="button"
+                    tone="ghost"
+                    disabled={release.isPending}
+                    onClick={() => {
+                      setActionError(null);
+                      release.mutate(
+                        { clientId: row.id },
+                        { onError: (err) => setActionError(err.message) },
+                      );
+                    }}
+                  >
+                    {release.isPending ? 'Releasing…' : 'Release'}
+                  </Button>
+                );
+              }
+              return null;
+            }}
+          />
+        )}
+      </Stack>
     </AppShell>
   );
 }

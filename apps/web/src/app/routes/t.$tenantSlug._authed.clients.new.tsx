@@ -1,10 +1,23 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState, type FormEvent, type ReactElement } from 'react';
 
-import type { BreadcrumbItemData } from '@advicelink/ui';
+import {
+  Alert,
+  Bounded,
+  Button,
+  Cluster,
+  Field,
+  FieldGroup,
+  Grid,
+  Input,
+  PageHeader,
+  Select,
+  Stack,
+  type BreadcrumbItemData,
+  type SelectOption,
+} from '@advicelink/ui';
 
 import { AppShell } from '../components/AppShell';
-import { Field } from '../forms/Field';
 import { trpc } from '../../lib/trpc';
 
 /**
@@ -84,101 +97,90 @@ function NewClientPage(): ReactElement {
     { id: 'new', label: 'New client' },
   ];
 
+  const grantOptions: SelectOption[] =
+    grants.data?.map((firm) => ({ value: firm.id, label: firm.displayName })) ?? [];
+
   return (
     <AppShell tenantSlug={tenantSlug} breadcrumbs={breadcrumbs}>
-      <header>
-        <h1 style={{ margin: 0 }}>New client</h1>
-      </header>
+      <PageHeader title="New client" />
 
       {whoami.isPending ? (
-        <p>Loading…</p>
+        <Alert tone="neutral">Loading…</Alert>
       ) : (
-        <div data-card style={{ maxWidth: '36rem' }}>
-          {isLeadGen ? (
-            <p data-banner data-tone="info" style={{ marginBottom: '1rem' }}>
-              You&rsquo;re creating this client on behalf of an advice firm. The advice firm you
-              select will own the client once the onboarding pack is signed.
-            </p>
-          ) : (
-            <p data-banner data-tone="info" style={{ marginBottom: '1rem' }}>
-              This client will belong to {whoami.data?.tenant.displayName} from creation.
-            </p>
-          )}
-
+        <Bounded maxWidth="md">
           <form onSubmit={handleSubmit}>
-            <div data-row-grid>
-              <Field label="First name" required>
-                <input
-                  type="text"
-                  autoComplete="given-name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  disabled={create.isPending}
-                />
-              </Field>
-              <Field label="Surname" required>
-                <input
-                  type="text"
-                  autoComplete="family-name"
-                  value={surname}
-                  onChange={(e) => setSurname(e.target.value)}
-                  disabled={create.isPending}
-                />
-              </Field>
-            </div>
+            <Stack gap={6}>
+              <Alert tone={isLeadGen ? 'info' : 'neutral'}>
+                {isLeadGen
+                  ? "You're creating this client on behalf of an advice firm. The advice firm you select will own the client once the onboarding pack is signed."
+                  : `This client will belong to ${whoami.data?.tenant.displayName} from creation.`}
+              </Alert>
 
-            {requireDestination ? (
-              <div style={{ marginTop: '1rem' }}>
-                <Field
-                  label="Destination advice firm"
-                  required
-                  help={
-                    grants.isPending
-                      ? 'Loading firms…'
-                      : grants.data && grants.data.length > 0
-                        ? 'Pick the advice firm that will receive this client.'
-                        : 'Your tenant does not have any active grants. Ask the advice firm to grant access first.'
-                  }
-                >
-                  <select
-                    value={destinationId}
-                    onChange={(e) => setDestinationId(e.target.value)}
-                    disabled={create.isPending || grants.isPending}
+              <FieldGroup>
+                <Grid cols={2} gap={6}>
+                  <Field label="First name" required>
+                    <Input
+                      type="text"
+                      autoComplete="given-name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={create.isPending}
+                    />
+                  </Field>
+                  <Field label="Surname" required>
+                    <Input
+                      type="text"
+                      autoComplete="family-name"
+                      value={surname}
+                      onChange={(e) => setSurname(e.target.value)}
+                      disabled={create.isPending}
+                    />
+                  </Field>
+                </Grid>
+
+                {requireDestination ? (
+                  <Field
+                    label="Destination advice firm"
+                    required
+                    help={
+                      grants.isPending
+                        ? 'Loading firms…'
+                        : grants.data && grants.data.length > 0
+                          ? 'Pick the advice firm that will receive this client.'
+                          : 'Your tenant does not have any active grants. Ask the advice firm to grant access first.'
+                    }
                   >
-                    <option value="">Choose a firm…</option>
-                    {grants.data?.map((firm) => (
-                      <option key={firm.id} value={firm.id}>
-                        {firm.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-            ) : null}
+                    <Select
+                      value={destinationId}
+                      onValueChange={setDestinationId}
+                      disabled={create.isPending || grants.isPending}
+                      options={grantOptions}
+                      placeholder="Choose a firm…"
+                    />
+                  </Field>
+                ) : null}
+              </FieldGroup>
 
-            {submitError ? (
-              <p data-banner data-tone="danger" role="alert" style={{ marginTop: '1rem' }}>
-                {submitError}
-              </p>
-            ) : null}
+              {submitError ? <Alert tone="danger">{submitError}</Alert> : null}
 
-            <div data-form-actions>
-              <button
-                type="button"
-                data-button="secondary"
-                onClick={() => {
-                  void navigate({ to: '/t/$tenantSlug/clients', params: { tenantSlug } });
-                }}
-                disabled={create.isPending}
-              >
-                Cancel
-              </button>
-              <button type="submit" data-button="primary" disabled={create.isPending}>
-                {create.isPending ? 'Creating…' : 'Create client'}
-              </button>
-            </div>
+              <Cluster justify="end" gap={2}>
+                <Button
+                  type="button"
+                  tone="secondary"
+                  onClick={() => {
+                    void navigate({ to: '/t/$tenantSlug/clients', params: { tenantSlug } });
+                  }}
+                  disabled={create.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={create.isPending}>
+                  {create.isPending ? 'Creating…' : 'Create client'}
+                </Button>
+              </Cluster>
+            </Stack>
           </form>
-        </div>
+        </Bounded>
       )}
     </AppShell>
   );

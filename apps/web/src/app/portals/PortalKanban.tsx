@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@advicelink/api/trpc';
+import { Cluster, EmptyState, Grid, Stack, StatusBadge, Surface } from '@advicelink/ui';
 
 type ListForPortalOutput = inferRouterOutputs<AppRouter>['clients']['listForPortal'];
 type PortalBucket = ListForPortalOutput[number];
@@ -19,6 +20,11 @@ type PortalClientRow = PortalBucket['clients'][number];
  *
  * Drag-and-drop kanban interaction (REBUILD_PLAN §6.1) is deferred
  * to a follow-up; click-to-open is the v1 interaction.
+ *
+ * Each bucket is a `<Surface>` (Card) — those *are* a legitimate use
+ * of the surface primitive: the buckets are visually distinct,
+ * scrollable columns the user moves between. Each client inside the
+ * bucket is a one-liner link with metadata, not its own card.
  */
 
 export interface PortalKanbanProps {
@@ -38,60 +44,85 @@ export function PortalKanban({
   renderCardActions,
 }: PortalKanbanProps): ReactElement {
   return (
-    <div data-portal-kanban>
+    <Grid cols={3} gap={4}>
       {buckets.map((bucket) => (
-        <section key={bucket.key} data-portal-bucket>
-          <header>
-            <h2>{bucket.label}</h2>
-            <span data-chip>{bucket.clients.length}</span>
-          </header>
-          <p>{bucket.description}</p>
+        <Surface
+          key={bucket.key}
+          title={
+            <Cluster gap={2}>
+              <span>{bucket.label}</span>
+              <StatusBadge tone="info">{bucket.clients.length}</StatusBadge>
+            </Cluster>
+          }
+          description={bucket.description}
+        >
           {bucket.clients.length === 0 ? (
-            <div data-empty-state>
-              <p>Nothing here right now.</p>
-            </div>
+            <EmptyState title="Nothing here right now." />
           ) : (
-            <ul data-portal-card-list>
+            <Stack gap={3} as="ul">
               {bucket.clients.map((row) => (
-                <li key={row.id} data-portal-card>
-                  <header>
-                    <Link
-                      to="/t/$tenantSlug/clients/$clientId/fact-find"
-                      params={{ tenantSlug, clientId: row.id }}
-                      search={{ section: 'personal' }}
-                    >
-                      <strong>{row.displayName || '(unnamed)'}</strong>
-                    </Link>
-                    <span data-chip data-tone="accent">
-                      {humaniseState(row.workflowState)}
-                    </span>
-                  </header>
-                  <dl data-portal-card-meta>
-                    {row.nextArDate ? (
-                      <>
-                        <dt>Next AR</dt>
-                        <dd>{row.nextArDate}</dd>
-                      </>
-                    ) : null}
-                    {row.claimedAt ? (
-                      <>
-                        <dt>Claimed</dt>
-                        <dd>{formatDate(row.claimedAt)}</dd>
-                      </>
-                    ) : null}
-                    <dt>Last updated</dt>
-                    <dd>{formatDate(row.updatedAt)}</dd>
-                  </dl>
-                  {renderCardActions ? (
-                    <div data-portal-card-actions>{renderCardActions(row, bucket.key)}</div>
-                  ) : null}
-                </li>
+                <PortalCardRow
+                  key={row.id}
+                  row={row}
+                  tenantSlug={tenantSlug}
+                  bucketKey={bucket.key}
+                  renderCardActions={renderCardActions}
+                />
               ))}
-            </ul>
+            </Stack>
           )}
-        </section>
+        </Surface>
       ))}
-    </div>
+    </Grid>
+  );
+}
+
+interface PortalCardRowProps {
+  row: PortalClientRow;
+  tenantSlug: string;
+  bucketKey: string;
+  renderCardActions?: (row: PortalClientRow, bucketKey: string) => ReactNode;
+}
+
+function PortalCardRow({
+  row,
+  tenantSlug,
+  bucketKey,
+  renderCardActions,
+}: PortalCardRowProps): ReactElement {
+  return (
+    <li data-portal-card>
+      <Stack gap={2}>
+        <Cluster justify="between" gap={2}>
+          <Link
+            to="/t/$tenantSlug/clients/$clientId/fact-find"
+            params={{ tenantSlug, clientId: row.id }}
+            search={{ section: 'personal' }}
+            data-portal-card-title
+          >
+            {row.displayName || '(unnamed)'}
+          </Link>
+          <StatusBadge tone="info">{humaniseState(row.workflowState)}</StatusBadge>
+        </Cluster>
+        <dl data-portal-card-meta>
+          {row.nextArDate ? (
+            <>
+              <dt>Next AR</dt>
+              <dd>{row.nextArDate}</dd>
+            </>
+          ) : null}
+          {row.claimedAt ? (
+            <>
+              <dt>Claimed</dt>
+              <dd>{formatDate(row.claimedAt)}</dd>
+            </>
+          ) : null}
+          <dt>Last updated</dt>
+          <dd>{formatDate(row.updatedAt)}</dd>
+        </dl>
+        {renderCardActions ? <Cluster gap={2}>{renderCardActions(row, bucketKey)}</Cluster> : null}
+      </Stack>
+    </li>
   );
 }
 

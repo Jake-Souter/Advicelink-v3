@@ -3,7 +3,13 @@ import { useMemo, useState, type ReactElement } from 'react';
 import { ClipboardList } from 'lucide-react';
 import { z } from 'zod';
 
-import type { AppShellNavGroup, BreadcrumbItemData } from '@advicelink/ui';
+import {
+  Alert,
+  Button,
+  PageHeader,
+  type AppShellNavGroup,
+  type BreadcrumbItemData,
+} from '@advicelink/ui';
 import {
   factFindSectionSchemas,
   type FactFindSectionId,
@@ -138,7 +144,7 @@ function FactFindPage(): ReactElement {
         extraNavGroups={[factFindNavGroup]}
         breadcrumbs={breadcrumbs}
       >
-        <p>Loading Fact Find…</p>
+        <Alert tone="neutral">Loading Fact Find…</Alert>
       </AppShell>
     );
   }
@@ -149,9 +155,9 @@ function FactFindPage(): ReactElement {
         extraNavGroups={[factFindNavGroup]}
         breadcrumbs={breadcrumbs}
       >
-        <p data-banner data-tone="danger" role="alert">
+        <Alert tone="danger" title="Couldn't load Fact Find">
           {load.error.message}
-        </p>
+        </Alert>
       </AppShell>
     );
   }
@@ -171,32 +177,23 @@ function FactFindPage(): ReactElement {
 
   return (
     <AppShell tenantSlug={tenantSlug} extraNavGroups={[factFindNavGroup]} breadcrumbs={breadcrumbs}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0 }}>Fact Find</h1>
-        <div>
-          {isLocked ? (
-            <p data-banner data-tone="success" style={{ margin: 0 }}>
-              Locked at {meta.factFindLockedAt?.toLocaleString('en-AU')}
-            </p>
-          ) : (
-            <>
-              <button
-                type="button"
-                data-button="primary"
-                onClick={handleLock}
-                disabled={lock.isPending}
-              >
-                {lock.isPending ? 'Locking…' : 'Lock Fact Find'}
-              </button>
-              {lockError ? (
-                <p data-banner data-tone="danger" role="alert" style={{ marginTop: '0.5rem' }}>
-                  {lockError}
-                </p>
-              ) : null}
-            </>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title="Fact Find"
+        actions={
+          isLocked ? null : (
+            <Button onClick={handleLock} disabled={lock.isPending}>
+              {lock.isPending ? 'Locking…' : 'Lock Fact Find'}
+            </Button>
+          )
+        }
+      />
+
+      {isLocked ? (
+        <Alert tone="success" title="Fact Find locked">
+          Locked at {meta.factFindLockedAt?.toLocaleString('en-AU')}
+        </Alert>
+      ) : null}
+      {lockError ? <Alert tone="danger">{lockError}</Alert> : null}
 
       <SectionEditor
         sectionId={section}

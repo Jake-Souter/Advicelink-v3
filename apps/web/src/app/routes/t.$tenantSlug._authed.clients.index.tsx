@@ -1,13 +1,14 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
-import { AlertTriangle, Loader2, Plus, Users } from 'lucide-react';
+import { Loader2, Plus, Users } from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import {
+  Alert,
   Button,
   DataTable,
   EmptyState,
+  PageHeader,
   StatusBadge,
-  Surface,
   type BreadcrumbItemData,
   type DataTableColumn,
   type StatusTone,
@@ -97,7 +98,7 @@ function ClientsIndexPage(): ReactElement {
 
   return (
     <AppShell tenantSlug={tenantSlug} breadcrumbs={breadcrumbs}>
-      <Surface
+      <PageHeader
         title="Clients"
         description="Every client your tenant can see — RLS filters automatically."
         actions={
@@ -107,38 +108,35 @@ function ClientsIndexPage(): ReactElement {
             </Link>
           </Button>
         }
-        padded={false}
-      >
-        {list.isPending ? (
-          <EmptyState icon={Loader2} title="Loading clients…" />
-        ) : list.isError ? (
-          <EmptyState
-            icon={AlertTriangle}
-            title="Couldn't load clients"
-            description={list.error.message}
-          />
-        ) : (
-          <DataTable<ClientRow>
-            columns={columns}
-            rows={list.data}
-            keyAccessor={(row) => row.id}
-            empty={
-              <EmptyState
-                icon={Users}
-                title="No clients yet"
-                description="Create your first client to start a Fact Find."
-                action={
-                  <Button asChild iconStart={Plus}>
-                    <Link to="/t/$tenantSlug/clients/new" params={{ tenantSlug }}>
-                      New client
-                    </Link>
-                  </Button>
-                }
-              />
-            }
-          />
-        )}
-      </Surface>
+      />
+
+      {list.isPending ? (
+        <EmptyState icon={Loader2} title="Loading clients…" />
+      ) : list.isError ? (
+        <Alert tone="danger" title="Couldn't load clients">
+          {list.error.message}
+        </Alert>
+      ) : (
+        <DataTable<ClientRow>
+          columns={columns}
+          rows={list.data}
+          keyAccessor={(row) => row.id}
+          empty={
+            <EmptyState
+              icon={Users}
+              title="No clients yet"
+              description="Create your first client to start a Fact Find."
+              action={
+                <Button asChild iconStart={Plus}>
+                  <Link to="/t/$tenantSlug/clients/new" params={{ tenantSlug }}>
+                    New client
+                  </Link>
+                </Button>
+              }
+            />
+          }
+        />
+      )}
     </AppShell>
   );
 }

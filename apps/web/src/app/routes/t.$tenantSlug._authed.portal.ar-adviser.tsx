@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
 
+import { Alert, PageHeader } from '@advicelink/ui';
+
 import { AppShell } from '../components/AppShell';
 import { PortalKanban } from '../portals/PortalKanban';
 import { trpc } from '../../lib/trpc';
@@ -20,15 +22,11 @@ function ArAdviserPortalPage(): ReactElement {
 
   return (
     <AppShell tenantSlug={tenantSlug}>
-      <header data-app-topbar>
-        <h1>AR Adviser portal</h1>
-      </header>
+      <PageHeader title="AR Adviser portal" />
       {portal.isPending ? (
-        <p>Loading…</p>
+        <Alert tone="neutral">Loading…</Alert>
       ) : portal.isError ? (
-        <p data-banner data-tone="danger" role="alert">
-          {portal.error.message}
-        </p>
+        <Alert tone="danger">{portal.error.message}</Alert>
       ) : (
         <PortalKanban tenantSlug={tenantSlug} buckets={portal.data} />
       )}

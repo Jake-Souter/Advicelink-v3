@@ -653,6 +653,18 @@ body {
   text-decoration: underline;
 }
 
+[data-portal-card-title] {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+[data-portal-card-title]:hover {
+  color: var(--ui-color-brand-primary);
+  text-decoration: underline;
+}
+
 [data-portal-card-meta] {
   display: grid;
   grid-template-columns: max-content 1fr;

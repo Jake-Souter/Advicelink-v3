@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, type ReactElement } from 'react';
 
+import { Alert, Button, Cluster, Field, Input, PageHeader, Stack } from '@advicelink/ui';
+
 import { AppShell } from '../components/AppShell';
 import { PortalKanban } from '../portals/PortalKanban';
 import { trpc } from '../../lib/trpc';
@@ -54,73 +56,63 @@ function LeadGenPortalPage(): ReactElement {
 
   return (
     <AppShell tenantSlug={tenantSlug}>
-      <header data-app-topbar>
-        <h1>Lead Gen portal</h1>
-      </header>
+      <PageHeader title="Lead Gen portal" />
       {portal.isPending ? (
-        <p>Loading…</p>
+        <Alert tone="neutral">Loading…</Alert>
       ) : portal.isError ? (
-        <p data-banner data-tone="danger" role="alert">
-          {portal.error.message}
-        </p>
+        <Alert tone="danger">{portal.error.message}</Alert>
       ) : (
         <PortalKanban
           tenantSlug={tenantSlug}
           buckets={portal.data}
-          renderCardActions={(row) => (
-            <>
-              {activeMarkLostId === row.id ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                  <input
+          renderCardActions={(row) =>
+            activeMarkLostId === row.id ? (
+              <Stack gap={2}>
+                <Field label="Reason for loss" error={actionError ?? undefined}>
+                  <Input
                     type="text"
                     placeholder="Reason for loss…"
                     value={lostReason}
                     onChange={(e) => setLostReason(e.target.value)}
                     disabled={transition.isPending}
                   />
-                  {actionError ? (
-                    <span data-error style={{ fontSize: '0.75rem', color: '#DC2626' }}>
-                      {actionError}
-                    </span>
-                  ) : null}
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      type="button"
-                      data-button="primary"
-                      onClick={() => handleMarkLost(row.id)}
-                      disabled={transition.isPending}
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      data-button="ghost"
-                      onClick={() => {
-                        setActiveMarkLostId(null);
-                        setLostReason('');
-                        setActionError(null);
-                      }}
-                      disabled={transition.isPending}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  data-button="ghost"
-                  onClick={() => {
-                    setActiveMarkLostId(row.id);
-                    setLostReason('');
-                    setActionError(null);
-                  }}
-                >
-                  Mark lost
-                </button>
-              )}
-            </>
-          )}
+                </Field>
+                <Cluster gap={2}>
+                  <Button
+                    type="button"
+                    onClick={() => handleMarkLost(row.id)}
+                    disabled={transition.isPending}
+                  >
+                    Confirm
+                  </Button>
+                  <Button
+                    type="button"
+                    tone="ghost"
+                    onClick={() => {
+                      setActiveMarkLostId(null);
+                      setLostReason('');
+                      setActionError(null);
+                    }}
+                    disabled={transition.isPending}
+                  >
+                    Cancel
+                  </Button>
+                </Cluster>
+              </Stack>
+            ) : (
+              <Button
+                type="button"
+                tone="ghost"
+                onClick={() => {
+                  setActiveMarkLostId(row.id);
+                  setLostReason('');
+                  setActionError(null);
+                }}
+              >
+                Mark lost
+              </Button>
+            )
+          }
         />
       )}
     </AppShell>
