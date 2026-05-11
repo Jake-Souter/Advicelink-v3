@@ -30,3 +30,13 @@ export type {
 } from './semantic/AppShell.js';
 export { Breadcrumbs } from './semantic/Breadcrumbs.js';
 export type { BreadcrumbsProps, BreadcrumbItemData } from './semantic/Breadcrumbs.js';
+export { Surface } from './semantic/Surface.js';
+export type { SurfaceProps } from './semantic/Surface.js';
+export { Button } from './semantic/Button.js';
+export type { ButtonProps, ButtonTone } from './semantic/Button.js';
+export { StatusBadge } from './semantic/StatusBadge.js';
+export type { StatusBadgeProps, StatusTone } from './semantic/StatusBadge.js';
+export { EmptyState } from './semantic/EmptyState.js';
+export type { EmptyStateProps } from './semantic/EmptyState.js';
+export { DataTable } from './semantic/DataTable.js';
+export type { DataTableProps, DataTableColumn, DataTableAlignment } from './semantic/DataTable.js';
