@@ -62,6 +62,24 @@ cd apps/web     && doppler run -- pnpm dev
   [Doppler-Vercel integration](https://docs.doppler.com/docs/vercel) for
   `advicelink-web`.
 
+### `DATABASE_URL` / `REDIS_URL` — internal vs public
+
+Railway exposes two URLs per managed service:
+
+| variable               | scope                            | when used                                |
+| ---------------------- | -------------------------------- | ---------------------------------------- |
+| `DATABASE_URL`         | `*.railway.internal` (private)   | Deployed Railway services (free, faster) |
+| `DATABASE_PUBLIC_URL`  | `*.proxy.rlwy.net` (TCP proxy)   | Local laptops via `doppler run`          |
+| `REDIS_URL`            | `redis.railway.internal`         | Deployed Railway services                |
+| `REDIS_PUBLIC_URL`     | `*.proxy.rlwy.net`               | Local laptops via `doppler run`          |
+
+Both should live in the `advicelink-api` and `advicelink-workers` `dev` configs.
+The env loader (`apps/*/src/config/env.ts`) auto-prefers `*_PUBLIC_URL` if
+present, so the same Doppler config works from your laptop and inside Railway
+(deployed pods don't have `*_PUBLIC_URL` injected by the integration unless
+you explicitly map it). To enable: Railway → service → Settings → Networking →
+**Generate Domain** under "Public Networking".
+
 ## Secret rotation
 
 - Rotate Anthropic, OmniLife, DocuSign, SendGrid, Microsoft, Google,

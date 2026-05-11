@@ -12,6 +12,26 @@ const normalisePem = (raw: string | undefined): string | undefined => raw?.repla
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY ?? process.env.CLAUDE_API_KEY;
 
+// Prefer Railway public TCP-proxy URLs when present (used by laptops running
+// `doppler run`); fall back to the internal URLs (used by deployed Railway
+// services so traffic stays on the private network).
+const databaseUrl = process.env.DATABASE_PUBLIC_URL ?? process.env.DATABASE_URL;
+const redisUrl = process.env.REDIS_PUBLIC_URL ?? process.env.REDIS_URL;
+
+// Doppler stores absent values as empty strings — coerce them to undefined.
+const optStr = z.preprocess(
+  (v) => (v === '' || v == null ? undefined : v),
+  z.string().min(1).optional(),
+);
+const optUrl = z.preprocess(
+  (v) => (v === '' || v == null ? undefined : v),
+  z.string().url().optional(),
+);
+const optEmail = z.preprocess(
+  (v) => (v === '' || v == null ? undefined : v),
+  z.string().email().optional(),
+);
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
@@ -20,11 +40,13 @@ const schema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
-  S3_BUCKET: z.string().min(1),
+  // Object storage. Optional at v1 boot — required by document-renderer
+  // code paths (WP-9). Asserted at call sites that need them.
+  S3_BUCKET: optStr,
   S3_REGION: z.string().default('ap-southeast-2'),
-  S3_ACCESS_KEY_ID: z.string().min(1),
-  S3_SECRET_ACCESS_KEY: z.string().min(1),
-  S3_KMS_KEY_ID: z.string().min(1),
+  S3_ACCESS_KEY_ID: optStr,
+  S3_SECRET_ACCESS_KEY: optStr,
+  S3_KMS_KEY_ID: optStr,
 
   // Worker tuning
   WORKER_QUEUES: z
@@ -44,32 +66,41 @@ const schema = z.object({
   CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
 
   // Integrations (optional at boot; needed by the matching processor)
-  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: optStr,
   ANTHROPIC_DEFAULT_MODEL: z.string().default('claude-3-7-sonnet-20250219'),
 
-  DOCUSIGN_INTEGRATION_KEY: z.string().optional(),
-  DOCUSIGN_USER_ID: z.string().optional(),
-  DOCUSIGN_ACCOUNT_ID: z.string().optional(),
-  DOCUSIGN_PRIVATE_KEY: z
-    .string()
-    .optional()
-    .transform((v) => (v ? normalisePem(v)! : undefined)),
-  DOCUSIGN_BASE_URI: z.string().url().optional(),
+  DOCUSIGN_INTEGRATION_KEY: optStr,
+  DOCUSIGN_USER_ID: optStr,
+  DOCUSIGN_ACCOUNT_ID: optStr,
+  DOCUSIGN_PRIVATE_KEY: z.preprocess(
+    (v) => (v === '' || v == null ? undefined : v),
+    z
+      .string()
+      .min(1)
+      .optional()
+      .transform((v) => (v ? normalisePem(v)! : undefined)),
+  ),
+  DOCUSIGN_BASE_URI: optUrl,
 
-  OMNILIFE_USERNAME: z.string().optional(),
-  OMNILIFE_PASSWORD: z.string().optional(),
-  OMNILIFE_BASE_URL: z.string().url().optional(),
+  OMNILIFE_USERNAME: optStr,
+  OMNILIFE_PASSWORD: optStr,
+  OMNILIFE_BASE_URL: optUrl,
   OMNILIFE_GROUP_ID: z.string().default('ExampleGroup'),
 
-  SENDGRID_API_KEY: z.string().optional(),
-  SENDGRID_FROM_EMAIL: z.string().email().optional(),
-  SENDGRID_FROM_NAME: z.string().optional(),
+  SENDGRID_API_KEY: optStr,
+  SENDGRID_FROM_EMAIL: optEmail,
+  SENDGRID_FROM_NAME: optStr,
 
-  SENTRY_DSN: z.string().url().optional(),
-  HONEYCOMB_API_KEY: z.string().optional(),
+  SENTRY_DSN: optUrl,
+  HONEYCOMB_API_KEY: optStr,
 });
 
-const parsed = schema.safeParse({ ...process.env, ANTHROPIC_API_KEY: anthropicKey });
+const parsed = schema.safeParse({
+  ...process.env,
+  ANTHROPIC_API_KEY: anthropicKey,
+  DATABASE_URL: databaseUrl,
+  REDIS_URL: redisUrl,
+});
 if (!parsed.success) {
   console.error('[env] invalid configuration', parsed.error.flatten().fieldErrors);
   throw new Error('apps/workers: invalid environment configuration');
