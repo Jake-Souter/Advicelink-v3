@@ -20,13 +20,13 @@ import { Textarea as ShadcnTextarea } from '@/components/ui/textarea';
  * the entire shadcn group/item tree into a route file.
  */
 
-export interface InputProps extends React.ComponentProps<typeof ShadcnInput> {}
+export type InputProps = React.ComponentProps<typeof ShadcnInput>;
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(props, ref) {
   return <ShadcnInput ref={ref} {...props} />;
 });
 
-export interface TextareaProps extends React.ComponentProps<typeof ShadcnTextarea> {}
+export type TextareaProps = React.ComponentProps<typeof ShadcnTextarea>;
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   function Textarea(props, ref) {

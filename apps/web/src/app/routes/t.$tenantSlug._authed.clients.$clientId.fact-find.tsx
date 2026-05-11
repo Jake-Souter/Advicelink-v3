@@ -180,7 +180,20 @@ function FactFindPage(): ReactElement {
       <PageHeader
         title="Fact Find"
         actions={
-          isLocked ? null : (
+          isLocked ? (
+            <Button
+              tone="secondary"
+              onClick={() =>
+                void navigate({
+                  to: '/t/$tenantSlug/clients/$clientId/soa-wizard',
+                  params: { tenantSlug, clientId },
+                  search: { section: 'cover' },
+                })
+              }
+            >
+              Open SOA Wizard
+            </Button>
+          ) : (
             <Button onClick={handleLock} disabled={lock.isPending}>
               {lock.isPending ? 'Locking…' : 'Lock Fact Find'}
             </Button>

@@ -23,6 +23,7 @@ import { Route as TTenantSlugAuthedPortalArSupportRouteImport } from './routes/t
 import { Route as TTenantSlugAuthedPortalArAdviserRouteImport } from './routes/t.$tenantSlug._authed.portal.ar-adviser'
 import { Route as TTenantSlugAuthedPortalAdviserRouteImport } from './routes/t.$tenantSlug._authed.portal.adviser'
 import { Route as TTenantSlugAuthedClientsNewRouteImport } from './routes/t.$tenantSlug._authed.clients.new'
+import { Route as TTenantSlugAuthedClientsClientIdSoaWizardRouteImport } from './routes/t.$tenantSlug._authed.clients.$clientId.soa-wizard'
 import { Route as TTenantSlugAuthedClientsClientIdFactFindRouteImport } from './routes/t.$tenantSlug._authed.clients.$clientId.fact-find'
 
 const IndexRoute = IndexRouteImport.update({
@@ -102,6 +103,12 @@ const TTenantSlugAuthedClientsNewRoute =
     path: '/clients/new',
     getParentRoute: () => TTenantSlugAuthedRoute,
   } as any)
+const TTenantSlugAuthedClientsClientIdSoaWizardRoute =
+  TTenantSlugAuthedClientsClientIdSoaWizardRouteImport.update({
+    id: '/clients/$clientId/soa-wizard',
+    path: '/clients/$clientId/soa-wizard',
+    getParentRoute: () => TTenantSlugAuthedRoute,
+  } as any)
 const TTenantSlugAuthedClientsClientIdFactFindRoute =
   TTenantSlugAuthedClientsClientIdFactFindRouteImport.update({
     id: '/clients/$clientId/fact-find',
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/t/$tenantSlug/portal/uf-support': typeof TTenantSlugAuthedPortalUfSupportRoute
   '/t/$tenantSlug/clients/': typeof TTenantSlugAuthedClientsIndexRoute
   '/t/$tenantSlug/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
+  '/t/$tenantSlug/clients/$clientId/soa-wizard': typeof TTenantSlugAuthedClientsClientIdSoaWizardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -139,6 +147,7 @@ export interface FileRoutesByTo {
   '/t/$tenantSlug/portal/uf-support': typeof TTenantSlugAuthedPortalUfSupportRoute
   '/t/$tenantSlug/clients': typeof TTenantSlugAuthedClientsIndexRoute
   '/t/$tenantSlug/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
+  '/t/$tenantSlug/clients/$clientId/soa-wizard': typeof TTenantSlugAuthedClientsClientIdSoaWizardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -157,6 +166,7 @@ export interface FileRoutesById {
   '/t/$tenantSlug/_authed/portal/uf-support': typeof TTenantSlugAuthedPortalUfSupportRoute
   '/t/$tenantSlug/_authed/clients/': typeof TTenantSlugAuthedClientsIndexRoute
   '/t/$tenantSlug/_authed/clients/$clientId/fact-find': typeof TTenantSlugAuthedClientsClientIdFactFindRoute
+  '/t/$tenantSlug/_authed/clients/$clientId/soa-wizard': typeof TTenantSlugAuthedClientsClientIdSoaWizardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/portal/uf-support'
     | '/t/$tenantSlug/clients/'
     | '/t/$tenantSlug/clients/$clientId/fact-find'
+    | '/t/$tenantSlug/clients/$clientId/soa-wizard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/portal/uf-support'
     | '/t/$tenantSlug/clients'
     | '/t/$tenantSlug/clients/$clientId/fact-find'
+    | '/t/$tenantSlug/clients/$clientId/soa-wizard'
   id:
     | '__root__'
     | '/'
@@ -207,6 +219,7 @@ export interface FileRouteTypes {
     | '/t/$tenantSlug/_authed/portal/uf-support'
     | '/t/$tenantSlug/_authed/clients/'
     | '/t/$tenantSlug/_authed/clients/$clientId/fact-find'
+    | '/t/$tenantSlug/_authed/clients/$clientId/soa-wizard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -314,6 +327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TTenantSlugAuthedClientsNewRouteImport
       parentRoute: typeof TTenantSlugAuthedRoute
     }
+    '/t/$tenantSlug/_authed/clients/$clientId/soa-wizard': {
+      id: '/t/$tenantSlug/_authed/clients/$clientId/soa-wizard'
+      path: '/clients/$clientId/soa-wizard'
+      fullPath: '/t/$tenantSlug/clients/$clientId/soa-wizard'
+      preLoaderRoute: typeof TTenantSlugAuthedClientsClientIdSoaWizardRouteImport
+      parentRoute: typeof TTenantSlugAuthedRoute
+    }
     '/t/$tenantSlug/_authed/clients/$clientId/fact-find': {
       id: '/t/$tenantSlug/_authed/clients/$clientId/fact-find'
       path: '/clients/$clientId/fact-find'
@@ -335,6 +355,7 @@ interface TTenantSlugAuthedRouteChildren {
   TTenantSlugAuthedPortalUfSupportRoute: typeof TTenantSlugAuthedPortalUfSupportRoute
   TTenantSlugAuthedClientsIndexRoute: typeof TTenantSlugAuthedClientsIndexRoute
   TTenantSlugAuthedClientsClientIdFactFindRoute: typeof TTenantSlugAuthedClientsClientIdFactFindRoute
+  TTenantSlugAuthedClientsClientIdSoaWizardRoute: typeof TTenantSlugAuthedClientsClientIdSoaWizardRoute
 }
 
 const TTenantSlugAuthedRouteChildren: TTenantSlugAuthedRouteChildren = {
@@ -350,6 +371,8 @@ const TTenantSlugAuthedRouteChildren: TTenantSlugAuthedRouteChildren = {
   TTenantSlugAuthedClientsIndexRoute: TTenantSlugAuthedClientsIndexRoute,
   TTenantSlugAuthedClientsClientIdFactFindRoute:
     TTenantSlugAuthedClientsClientIdFactFindRoute,
+  TTenantSlugAuthedClientsClientIdSoaWizardRoute:
+    TTenantSlugAuthedClientsClientIdSoaWizardRoute,
 }
 
 const TTenantSlugAuthedRouteWithChildren =

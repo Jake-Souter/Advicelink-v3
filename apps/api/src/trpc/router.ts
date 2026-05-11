@@ -3,6 +3,7 @@ import { authRouter } from './routers/auth.js';
 import { clientsRouter } from './routers/clients.js';
 import { factFindRouter } from './routers/factFind.js';
 import { healthRouter } from './routers/health.js';
+import { soaWizardRouter } from './routers/soaWizard.js';
 import { tenantsRouter } from './routers/tenants.js';
 
 /**
@@ -18,6 +19,7 @@ export const appRouter = router({
   tenants: tenantsRouter,
   clients: clientsRouter,
   factFind: factFindRouter,
+  soaWizard: soaWizardRouter,
 });
 
 export type AppRouter = typeof appRouter;

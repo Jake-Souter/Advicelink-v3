@@ -42,6 +42,20 @@ export const PROMPT_KEYS = [
   'factFindGoalsSuperLumpSum',
   'factFindGoalsPreviousAdviser',
   'factFindRiskNotes',
+  // ── SOA Wizard ────────────────────────────────────────────────
+  // (REBUILD_PLAN §19.1.* — one key per AI-assist surface in the
+  // SOA Wizard. Each takes the same `FactFindContext` shape: the
+  // service layer flattens the relevant slice of the wizard
+  // payload + locked Fact Find facts into `factsBullets` and
+  // names the client in `displayName`.)
+  'soaWizardScopeOfAdvice',
+  'soaWizardPositionObservations',
+  'soaWizardGoalsNarrative',
+  'soaWizardStrategyRationale',
+  'soaWizardInsuranceRationale',
+  'soaWizardSuperRationale',
+  'soaWizardInvestmentRationale',
+  'soaWizardRiskProfileNotes',
 ] as const;
 export type PromptKey = (typeof PROMPT_KEYS)[number];
 
@@ -81,6 +95,15 @@ English spelling and a warm, professional tone. Never invent facts not
 supplied to you. If the supplied facts are insufficient, say so directly
 in the suggestion.`;
 
+const soaSystemPrompt = `You are a financial-planning copywriter helping an Australian
+adviser draft a Statement of Advice (SOA) for a client. Output ONLY a JSON
+object of the requested shape — no preamble, no markdown fences. Use
+Australian English spelling, a professional but readable tone, and prefer
+plain-English explanations over jargon. Never invent facts not supplied
+to you. If the supplied facts are insufficient, say so directly in the
+suggestion. Reference RG175-style language (objectives, scope, basis of
+advice, risks) when the question calls for it, but stay concise.`;
+
 const buildBulletedUserMessage = (input: FactFindContext, questionPrompt: string): string => {
   const bullets = input.factsBullets.map((b) => `- ${b}`).join('\n');
   return `Client: ${input.displayName}
@@ -99,6 +122,23 @@ const goalPrompt = (questionPrompt: string): PromptDefinition<FactFindContext, G
   outputSchema: goalAnswerSchema,
   model: DEFAULT_MODEL,
   maxTokens: 600,
+  temperature: 0.3,
+  buildUserMessage: (input) => buildBulletedUserMessage(input, questionPrompt),
+});
+
+/**
+ * SOA Wizard prompts use the same `factFindContextSchema` input + the
+ * same single-string `goalAnswerSchema` output as the Fact Find
+ * prompts (so the registry stays homogeneous and the run-assist
+ * service stays generic) but with the SOA-specific system prompt and
+ * a slightly higher token budget for the longer rationale fields.
+ */
+const soaPrompt = (questionPrompt: string): PromptDefinition<FactFindContext, GoalAnswer> => ({
+  systemPrompt: soaSystemPrompt,
+  inputSchema: factFindContextSchema,
+  outputSchema: goalAnswerSchema,
+  model: DEFAULT_MODEL,
+  maxTokens: 1200,
   temperature: 0.3,
   buildUserMessage: (input) => buildBulletedUserMessage(input, questionPrompt),
 });
@@ -127,6 +167,31 @@ export const PROMPTS = {
   ),
   factFindRiskNotes: goalPrompt(
     "Suggest 2-3 sentences of adviser-facing notes summarising the client's risk profile answers and any nuance worth recording.",
+  ),
+
+  soaWizardScopeOfAdvice: soaPrompt(
+    'Draft the "Scope of Advice" paragraph for this SOA. 3-5 sentences. Cover what the advice DOES address (e.g. super, insurance, retirement income) and any obvious limitations the adviser has flagged. Keep it concrete and tied to the supplied facts.',
+  ),
+  soaWizardPositionObservations: soaPrompt(
+    "Draft 2-4 sentences of adviser observations about the client's current financial position. Lead with what the numbers suggest (income vs expenses, super on track, debt levels), and note any vulnerabilities a strategy should address.",
+  ),
+  soaWizardGoalsNarrative: soaPrompt(
+    "Draft 2-3 sentences for ONE prioritised goal: explain what the client wants, why it matters, and what success looks like. Lean on the supplied goal text.",
+  ),
+  soaWizardStrategyRationale: soaPrompt(
+    'Draft a multi-paragraph rationale for ONE strategy theme: the situation, the recommended action, why it matches the client\'s goals + risk profile, and the expected outcome. End with the headline benefit. 2-4 short paragraphs.',
+  ),
+  soaWizardInsuranceRationale: soaPrompt(
+    "Draft 2-3 sentences explaining why the recommended cover (type + amount + structure) matches the client's needs and goals. Reference the calculated need vs current cover gap if supplied.",
+  ),
+  soaWizardSuperRationale: soaPrompt(
+    "Draft 2-4 sentences explaining the super recommendation: why the recommended fund / consolidation / contribution mix is appropriate given the client's risk profile, fee comparison, and retirement goals.",
+  ),
+  soaWizardInvestmentRationale: soaPrompt(
+    "Draft 2-3 sentences explaining the outside-super investment recommendation: why the platform / portfolio / contribution pattern fits the client's risk profile and goals.",
+  ),
+  soaWizardRiskProfileNotes: soaPrompt(
+    "Draft 1-3 sentences of notes for the SOA's Risk Profile section. If a recommended profile differs from the client's measured profile, explain the rationale; otherwise confirm the profile is appropriate.",
   ),
 } as const satisfies Record<PromptKey, PromptDefinition<FactFindContext, GoalAnswer>>;
 
