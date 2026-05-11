@@ -1,9 +1,22 @@
 /**
- * Drizzle schema, migrations, and the typed `Db` connection.
+ * `@advicelink/db` public surface — Drizzle schema, typed client factory,
+ * and the RLS-context helpers (`withTenantContext`, `withPlatformAdmin`).
  *
- * Populated by Work Package 2 (DB + RLS): base tables (`tenants`, `users`,
- * `teams`, `team_memberships`, `audit_log`, `admin_audit_log`), the
- * `app.current_tenant_id` GUC plumbing, and Row-Level Security policies on
- * every tenant-owned table. See REBUILD_PLAN.md §7 and §12.2.
+ * Migrations and the seed script live under `src/cli/` and are invoked via
+ * `pnpm db:migrate` / `pnpm db:seed`; they are deliberately NOT exported
+ * because feature code must never run them at runtime.
+ *
+ * REBUILD_PLAN refs: §7 (data model), §11.1 (package layout), §12.2 (RLS),
+ * §19.16 (encryption / GUC plumbing).
  */
-export {};
+export * from './schema/index.js';
+export {
+  createDbClient,
+  withTenantContext,
+  withPlatformAdmin,
+  type Db,
+  type DbClient,
+  type Schema,
+  type TenantContext,
+  type CreateDbClientOptions,
+} from './client.js';

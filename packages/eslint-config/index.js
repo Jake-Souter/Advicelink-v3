@@ -56,4 +56,32 @@ export default tseslint.config(
       ],
     },
   },
+  // The documented exception to the env-read ban: env loaders themselves.
+  {
+    files: ['**/config/env.ts', '**/config/env.*.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
+  // CLI scripts (migrate, seed, ad-hoc ops) and the boot file print
+  // human-readable progress; structured Pino logs aren't appropriate there.
+  {
+    files: [
+      '**/cli/**/*.{ts,js}',
+      '**/scripts/**/*.{ts,js}',
+      '**/src/index.{ts,js}',
+    ],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  // Test files are allowed to read `process.env` for skip-conditions and
+  // can use console for diagnostic output.
+  {
+    files: ['**/*.test.{ts,tsx}', '**/test/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': 'off',
+      'no-console': 'off',
+    },
+  },
 );

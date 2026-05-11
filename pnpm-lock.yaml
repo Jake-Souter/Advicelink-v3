@@ -374,12 +374,18 @@ importers:
 
   packages/db:
     dependencies:
+      '@advicelink/branding':
+        specifier: workspace:*
+        version: link:../branding
       drizzle-orm:
         specifier: ^0.38.2
         version: 0.38.4(@opentelemetry/api@1.9.1)(@types/pg@8.6.1)(@types/react@19.2.14)(postgres@3.4.9)(react@19.2.6)
       postgres:
         specifier: ^3.4.5
         version: 3.4.9
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       '@advicelink/eslint-config':
         specifier: workspace:*

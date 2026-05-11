@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-syntax -- this file is the sole sanctioned env reader */
 /**
  * Single source of truth for `apps/workers` env vars.
  *

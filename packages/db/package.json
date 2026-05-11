@@ -14,13 +14,17 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/migrate.ts",
+    "db:migrate": "tsx src/cli/migrate.ts",
+    "db:seed": "tsx src/cli/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:check": "drizzle-kit check",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
+    "@advicelink/branding": "workspace:*",
     "drizzle-orm": "^0.38.2",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@advicelink/eslint-config": "workspace:*",
