@@ -10,5 +10,6 @@ export * from './tenants.js';
 export * from './users.js';
 export * from './teams.js';
 export * from './teamMemberships.js';
+export * from './leadGenGrants.js';
 export * from './auditLog.js';
 export * from './adminAuditLog.js';

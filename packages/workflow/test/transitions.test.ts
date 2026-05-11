@@ -40,29 +40,57 @@ describe('TRANSITIONS table', () => {
     expect(() => getTransition('nope' as WorkflowTransitionName)).toThrow(/unknown transition/);
   });
 
-  it('isFromMatch respects wildcard semantics (terminal states excluded)', () => {
-    const markLost = getTransition('markLost');
-    expect(markLost.from).toBe('*');
-    expect(isFromMatch(markLost, 'newLead')).toBe(true);
-    expect(isFromMatch(markLost, 'draftingSOA')).toBe(true);
-    expect(isFromMatch(markLost, 'lost')).toBe(false);
-    expect(isFromMatch(markLost, 'offboarded')).toBe(false);
+  it('isFromMatch — explicit-from transitions reject unrelated source states', () => {
+    const lockFactFind = getTransition('lockFactFind');
+    expect(isFromMatch(lockFactFind, 'factFinding')).toBe(true);
+    expect(isFromMatch(lockFactFind, 'draftingSOA')).toBe(false);
   });
 
-  it('explicit-from transitions reject unrelated source states', () => {
-    const startFactFind = getTransition('startFactFind');
-    expect(isFromMatch(startFactFind, 'newLead')).toBe(true);
-    expect(isFromMatch(startFactFind, 'factFinding')).toBe(false);
+  it('isFromMatch — markLost matches every lead-gen-owned state and nothing else', () => {
+    const markLost = getTransition('markLost');
+    for (const state of [
+      'factFinding',
+      'draftingSOA',
+      'reviewingSOA',
+      'amendingSOA',
+      'presentingSOA',
+    ] as const) {
+      expect(isFromMatch(markLost, state), `expected match on ${state}`).toBe(true);
+    }
+    for (const state of [
+      'welcomeCallScheduled',
+      'implementingAdvice',
+      'arBooked',
+      'lost',
+    ] as const) {
+      expect(isFromMatch(markLost, state), `expected no match on ${state}`).toBe(false);
+    }
+  });
+
+  it('autoFlagARDue fires from both implementingAdvice and waitingForAR', () => {
+    const t = getTransition('autoFlagARDue');
+    expect(t.from).toEqual(['implementingAdvice', 'waitingForAR']);
+    expect(t.to).toBe('dueForAR');
+    expect(t.trigger).toBe('cron');
+  });
+
+  it('DocuSign-driven transitions use the webhook trigger', () => {
+    expect(getTransition('recordClientSigned').trigger).toBe('webhook');
+    expect(getTransition('recordARPackSigned').trigger).toBe('webhook');
+  });
+
+  it('all closed transitions require a reason', () => {
+    expect(getTransition('markLost').requiresReason).toBe(true);
   });
 });
 
 describe('canTransition — happy path for every transition', () => {
   for (const t of TRANSITIONS) {
-    const fromState = t.from === '*' ? 'newLead' : t.from[0]!;
+    const fromState = t.from === '*' ? 'factFinding' : t.from[0]!;
     const role: Role = t.allowedRoles[0] ?? 'adviser';
     const isSystem = t.allowedRoles.length === 0;
 
-    it(`${t.name}: ${fromState} → ${t.to} as ${isSystem ? 'system' : role}`, () => {
+    it(`${t.name}: ${fromState} → ${t.to} as ${isSystem ? 'system/cron/webhook' : role}`, () => {
       const decision = canTransition(
         t.name,
         { workflowState: fromState },
@@ -81,7 +109,7 @@ describe('canTransition — rejection cases', () => {
   it('returns unknown_transition for a missing name', () => {
     const decision = canTransition(
       'nope' as WorkflowTransitionName,
-      { workflowState: 'newLead' },
+      { workflowState: 'factFinding' },
       { role: 'adviser' },
     );
     expect(decision).toMatchObject({ ok: false, reason: 'unknown_transition' });
@@ -89,36 +117,40 @@ describe('canTransition — rejection cases', () => {
 
   it('returns invalid_from_state when the source does not match', () => {
     const decision = canTransition(
-      'lockFactFind',
-      { workflowState: 'newLead' },
+      'approveSOA',
+      { workflowState: 'factFinding' },
       { role: 'adviser' },
     );
     expect(decision).toMatchObject({ ok: false, reason: 'invalid_from_state' });
   });
 
   it('returns invalid_from_state when the subject has no workflowState', () => {
-    const decision = canTransition('startFactFind', {}, { role: 'lead_gen' });
+    const decision = canTransition('lockFactFind', {}, { role: 'paraplanner' });
     expect(decision).toMatchObject({ ok: false, reason: 'invalid_from_state' });
   });
 
   it('returns role_not_allowed when the actor role is outside the allow-list', () => {
     const decision = canTransition(
-      'lockFactFind',
-      { workflowState: 'handedOffToAdvice' },
+      'approveSOA',
+      { workflowState: 'reviewingSOA' },
       { role: 'paraplanner' },
     );
     expect(decision).toMatchObject({ ok: false, reason: 'role_not_allowed' });
   });
 
   it('returns reason_required for markLost without a reason', () => {
-    const decision = canTransition('markLost', { workflowState: 'newLead' }, { role: 'lead_gen' });
+    const decision = canTransition(
+      'markLost',
+      { workflowState: 'factFinding' },
+      { role: 'lead_gen' },
+    );
     expect(decision).toMatchObject({ ok: false, reason: 'reason_required' });
   });
 
   it('returns reason_required for whitespace-only reason', () => {
     const decision = canTransition(
       'markLost',
-      { workflowState: 'newLead' },
+      { workflowState: 'factFinding' },
       { role: 'lead_gen' },
       { reason: '   \t  ' },
     );
@@ -128,40 +160,73 @@ describe('canTransition — rejection cases', () => {
   it('accepts markLost with a real reason', () => {
     const decision = canTransition(
       'markLost',
-      { workflowState: 'newLead' },
+      { workflowState: 'presentingSOA' },
       { role: 'lead_gen' },
-      { reason: 'client unresponsive after 30 days' },
+      { reason: 'client refused to sign onboarding pack' },
     );
     expect(decision).toEqual({ ok: true });
   });
 
-  it('returns system_only for firstSectionSaved triggered by a user', () => {
+  it('refuses markLost from advice-tenant-owned states (post-handoff)', () => {
     const decision = canTransition(
-      'firstSectionSaved',
-      { workflowState: 'paraplannerClaimed' },
-      { role: 'paraplanner' },
+      'markLost',
+      { workflowState: 'welcomeCallScheduled' },
+      { role: 'lead_gen' },
+      { reason: 'why are you trying this' },
+    );
+    expect(decision).toMatchObject({ ok: false, reason: 'invalid_from_state' });
+  });
+
+  it('returns system_only for webhook transitions triggered by a user', () => {
+    const decision = canTransition(
+      'recordClientSigned',
+      { workflowState: 'presentingSOA' },
+      { role: 'adviser' },
     );
     expect(decision).toMatchObject({ ok: false, reason: 'system_only' });
   });
 
-  it('accepts firstSectionSaved when isSystem: true', () => {
+  it('accepts recordClientSigned when isSystem: true (DocuSign webhook)', () => {
     const decision = canTransition(
-      'firstSectionSaved',
-      { workflowState: 'paraplannerClaimed' },
-      { role: 'paraplanner' },
+      'recordClientSigned',
+      { workflowState: 'presentingSOA' },
+      { role: 'lead_gen' }, // role irrelevant
       { isSystem: true },
     );
     expect(decision).toEqual({ ok: true });
   });
 
-  it('accepts auto cron transitions when isSystem: true', () => {
-    const decision = canTransition(
-      'autoFlagARDue',
-      { workflowState: 'servicing' },
-      { role: 'paraplanner' }, // role irrelevant
-      { isSystem: true },
-    );
-    expect(decision).toEqual({ ok: true });
+  it('accepts autoFlagARDue when isSystem: true (cron)', () => {
+    expect(
+      canTransition(
+        'autoFlagARDue',
+        { workflowState: 'implementingAdvice' },
+        { role: 'paraplanner' },
+        { isSystem: true },
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      canTransition(
+        'autoFlagARDue',
+        { workflowState: 'waitingForAR' },
+        { role: 'paraplanner' },
+        { isSystem: true },
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts recordARPackSigned only as a webhook from arComplete', () => {
+    expect(
+      canTransition('recordARPackSigned', { workflowState: 'arComplete' }, { role: 'adviser' }),
+    ).toMatchObject({ ok: false, reason: 'system_only' });
+    expect(
+      canTransition(
+        'recordARPackSigned',
+        { workflowState: 'arComplete' },
+        { role: 'adviser' },
+        { isSystem: true },
+      ),
+    ).toEqual({ ok: true });
   });
 });
 
@@ -169,8 +234,8 @@ describe('canTransition — super-admin escape hatch', () => {
   for (const role of ['tenant_super_admin', 'platform_super_admin'] as const) {
     it(`${role} can fire any user transition`, () => {
       for (const t of TRANSITIONS) {
-        if (t.allowedRoles.length === 0) continue; // system/cron
-        const fromState = t.from === '*' ? 'newLead' : t.from[0]!;
+        if (t.allowedRoles.length === 0) continue; // system/cron/webhook
+        const fromState = t.from === '*' ? 'factFinding' : t.from[0]!;
         const decision = canTransition(
           t.name,
           { workflowState: fromState },
@@ -193,7 +258,7 @@ describe('canTransition — exhaustive role rejection coverage', () => {
     if (denied.length === 0) continue;
 
     it(`${t.name} rejects ${denied.join(', ')}`, () => {
-      const fromState = t.from === '*' ? 'newLead' : t.from[0]!;
+      const fromState = t.from === '*' ? 'factFinding' : t.from[0]!;
       for (const role of denied) {
         const decision = canTransition(
           t.name,
@@ -211,39 +276,50 @@ describe('canTransition — exhaustive role rejection coverage', () => {
 });
 
 describe('transitionsAvailable', () => {
-  it('hides system-only transitions by default', () => {
-    const list = transitionsAvailable(
-      { workflowState: 'paraplannerClaimed' },
-      { role: 'paraplanner' },
-    );
-    expect(list).not.toContain('firstSectionSaved');
-    expect(list).toContain('releaseClaim');
+  it('hides system / webhook / cron transitions by default', () => {
+    const list = transitionsAvailable({ workflowState: 'presentingSOA' }, { role: 'lead_gen' });
+    expect(list).not.toContain('recordClientSigned');
+    // markLost is reason-required and surfaces (UI collects the reason on click)
+    expect(list).toContain('markLost');
   });
 
-  it('includes system transitions when includeSystem: true', () => {
+  it('includes system / webhook / cron transitions when includeSystem: true', () => {
     const list = transitionsAvailable(
-      { workflowState: 'paraplannerClaimed' },
-      { role: 'paraplanner' },
+      { workflowState: 'presentingSOA' },
+      { role: 'lead_gen' },
       { includeSystem: true },
     );
-    expect(list).toContain('firstSectionSaved');
+    expect(list).toContain('recordClientSigned');
   });
 
-  it('offers markLost / offboard from non-terminal states for the right roles', () => {
-    expect(transitionsAvailable({ workflowState: 'draftingSOA' }, { role: 'adviser' })).toContain(
-      'offboard',
+  it('offers AR cadence transitions to ar_support / ar_adviser only', () => {
+    expect(transitionsAvailable({ workflowState: 'dueForAR' }, { role: 'ar_support' })).toContain(
+      'bookAR',
     );
-    expect(transitionsAvailable({ workflowState: 'newLead' }, { role: 'lead_gen' })).toContain(
-      'markLost',
+    expect(
+      transitionsAvailable({ workflowState: 'dueForAR' }, { role: 'paraplanner' }),
+    ).not.toContain('bookAR');
+    expect(transitionsAvailable({ workflowState: 'arBooked' }, { role: 'ar_adviser' })).toEqual(
+      expect.arrayContaining(['requestARDocument', 'selfServeARComplete']),
     );
   });
 
-  it('does not offer markLost / offboard from terminal states', () => {
-    expect(transitionsAvailable({ workflowState: 'lost' }, { role: 'adviser' })).toEqual([]);
-    expect(transitionsAvailable({ workflowState: 'offboarded' }, { role: 'adviser' })).toEqual([]);
+  it('does not offer markLost from terminal states', () => {
+    expect(transitionsAvailable({ workflowState: 'lost' }, { role: 'lead_gen' })).toEqual([]);
   });
 
   it('returns an empty list for a role with no permitted transitions on the current state', () => {
-    expect(transitionsAvailable({ workflowState: 'newLead' }, { role: 'paraplanner' })).toEqual([]);
+    // Lead-gen has lost access post-flip; welcomeCallScheduled is
+    // adviser-owned. Lead-gen cannot even markLost from here (the
+    // markLost from-list ends at presentingSOA).
+    expect(
+      transitionsAvailable({ workflowState: 'welcomeCallScheduled' }, { role: 'lead_gen' }),
+    ).toEqual([]);
+  });
+
+  it('does not surface markLost to non-lead-gen roles even pre-handoff', () => {
+    expect(
+      transitionsAvailable({ workflowState: 'draftingSOA' }, { role: 'paraplanner' }),
+    ).not.toContain('markLost');
   });
 });

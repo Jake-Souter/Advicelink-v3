@@ -11,15 +11,17 @@
  * `no-stringly-typed-workflow-state` enforces this — use
  * `isInState`, `isInPhase`, or `canTransition` instead.
  *
- * REBUILD_PLAN.md §5.
+ * Authoritative spec: REBUILD_PLAN.md §5 (rewritten for WP-5.5).
  */
 
 export {
   WORKFLOW_PHASES,
   WORKFLOW_STATES,
   STATE_TO_PHASE,
+  TERMINAL_STATES,
   isInState,
   isInPhase,
+  isTerminalState,
   isWorkflowPhase,
   isWorkflowState,
   phaseOf,
@@ -31,7 +33,6 @@ export {
 export {
   TRANSITIONS,
   TRANSITIONS_BY_NAME,
-  TERMINAL_STATES,
   getTransition,
   isFromMatch,
   type TransitionTrigger,
@@ -49,8 +50,10 @@ export {
 } from './canTransition.js';
 
 export {
+  computeNextArDueDate,
   shouldAutoFlagARDue,
   shouldAutoReleaseParaplannerClaim,
+  DEFAULT_AR_CADENCE_MONTHS,
   DEFAULT_PARAPLANNER_RELEASE_AFTER_MS,
   type AutoArDueSubject,
   type AutoParaplannerReleaseOptions,

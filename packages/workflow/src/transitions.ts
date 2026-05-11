@@ -1,58 +1,67 @@
 import type { Role } from '@advicelink/rbac';
 
-import type { WorkflowState } from './states.js';
+import { TERMINAL_STATES, type WorkflowState } from './states.js';
 
 /**
  * Catalogue of every named transition in the client lifecycle.
  *
- * REBUILD_PLAN.md §5.4. The table is the single source of truth: the
- * XState machine in `clientWorkflow.ts`, the `canTransition` helper,
- * the workflow-events writer (lands in WP-7) and the model-based test
- * sweep all read from this array — never from prose.
+ * REBUILD_PLAN.md §5.4 (rewritten for WP-5.5 to match production).
+ * The table is the single source of truth: the XState machine in
+ * `clientWorkflow.ts`, the `canTransition` helper, the workflow_events
+ * writer (lands in WP-7) and the model-based test sweep all read from
+ * this array — never from prose.
  *
  * Naming convention: every transition name is a verb-phrase in
- * `camelCase` matching the plan exactly (`startFactFind`, `lockFactFind`,
- * etc.). Renaming a transition is a breaking change for stored
+ * `camelCase` matching the production trigger label as closely as
+ * possible. Renaming a transition is a breaking change for stored
  * `workflow_events` rows, so it goes through a database migration.
  */
 export type WorkflowTransitionName =
-  | 'startFactFind'
-  | 'flagFactFindReady'
-  | 'handOffToAdvice'
+  // Phase 1 → 2
   | 'lockFactFind'
-  | 'sendToParaplanner'
-  | 'claimByParaplanner'
-  | 'releaseClaim'
-  | 'firstSectionSaved'
-  | 'sendForReview'
-  | 'requestChanges'
-  | 'resubmit'
-  | 'presentSOA'
-  | 'recordAcceptance'
-  | 'recordNotProceeding'
+  // Phase 2 (SOA Production loop)
+  | 'sendSOAForReview'
+  | 'requestSOAChanges'
+  | 'resubmitSOA'
+  // Phase 2 → 3
+  | 'approveSOA'
+  // Phase 3: DocuSign-driven tenant flip
+  | 'recordClientSigned'
+  // Phase 3 → 5
   | 'startImplementation'
-  | 'closeImplementation'
-  | 'autoEnterServicing'
-  | 'autoFlagARDue'
-  | 'startARWizard'
-  | 'finaliseARWizard'
-  | 'sendARForReview'
-  | 'presentAR'
-  | 'completeAR'
-  | 'startROAEOWizard'
+  // Phase 3 → 4 (ROA / EO branch off welcomeCallScheduled)
+  | 'requestROAEO'
   | 'sendROAEOForReview'
-  | 'completeROAEO'
-  | 'markLost'
-  | 'offboard';
+  | 'approveROAEO'
+  // Phase 5 (insurance amendment side branch)
+  | 'flagInsuranceAmendment'
+  | 'requestInsuranceROAEO'
+  | 'resolveInsuranceAmendment'
+  // Phase 5 → 7 (AR-client insurance amendment bypass)
+  | 'flagInsuranceAmendmentAR'
+  // Phase 5 → 6
+  | 'confirmImplementation'
+  // Phase 5/6 → 7 (AR-due cron)
+  | 'autoFlagARDue'
+  // Phase 7 cadence
+  | 'bookAR'
+  | 'requestARDocument'
+  | 'sendARForReview'
+  | 'approveAR'
+  | 'selfServeARComplete'
+  // Phase 7 → 5: DocuSign-driven cycle restart on new CSA
+  | 'recordARPackSigned'
+  // Closed
+  | 'markLost';
 
 /**
- * Why a transition fired. `user` is the default — a role-gated user
- * action; `system` covers things the API initiates internally
- * (`firstSectionSaved` after the paraplanner saves a section); `cron`
- * covers BullMQ auto-transitions (`autoFlagARDue`,
- * `autoEnterServicing`).
+ * Why a transition fired. `user` is a role-gated user action; `system`
+ * covers things the API initiates internally (none in the v3 spec
+ * today, kept for future use); `cron` covers BullMQ auto-transitions
+ * (`autoFlagARDue`); `webhook` covers DocuSign-driven transitions
+ * (`recordClientSigned`, `recordARPackSigned`).
  */
-export type TransitionTrigger = 'user' | 'system' | 'cron';
+export type TransitionTrigger = 'user' | 'system' | 'cron' | 'webhook';
 
 export interface WorkflowTransition {
   /** Stable name written to `workflow_events.transition_name`. */
@@ -61,195 +70,212 @@ export interface WorkflowTransition {
   from: readonly WorkflowState[] | '*';
   to: WorkflowState;
   /**
-   * Roles allowed to initiate the transition. Empty array means
-   * `system` / `cron` only — no human role can fire it. Tenant +
-   * platform super-admins always pass; that's enforced by
-   * `canTransition`, not duplicated here.
+   * Roles allowed to initiate the transition. Empty array means the
+   * trigger is non-user (system / cron / webhook) and no human role
+   * can fire it. Tenant + platform super-admins always pass; that's
+   * enforced by `canTransition`, not duplicated here.
    */
   allowedRoles: readonly Role[];
   trigger: TransitionTrigger;
   /**
-   * Compliance hook — `markLost` and `offboard` mandate a non-empty
-   * `reason` so audit trails read meaningfully (REBUILD_PLAN §5.4).
-   * The guard is enforced in `canTransition` + the XState machine;
-   * the table is the single declaration site.
+   * Compliance hook — transitions whose business meaning warrants a
+   * persisted explanation set this. The guard is enforced in
+   * `canTransition` + the XState machine; the table is the single
+   * declaration site.
    */
   requiresReason?: boolean;
 }
 
-/**
- * Terminal states — `'*'` source transitions cannot fire from these.
- * Centralised so adding a new closed state is a one-line change.
- */
-export const TERMINAL_STATES: readonly WorkflowState[] = ['lost', 'notProceeding', 'offboarded'];
-
-/**
- * Wildcard source. Adviser/lead-gen can `markLost` or `offboard` a
- * client from any non-terminal state.
- */
+/** Wildcard source. Used by transitions reachable from any non-terminal state. */
 const WILDCARD = '*' as const;
 
-export const TRANSITIONS: readonly WorkflowTransition[] = [
-  // capture
-  {
-    name: 'startFactFind',
-    from: ['newLead'],
-    to: 'factFinding',
-    allowedRoles: ['lead_gen'],
-    trigger: 'user',
-  },
-  {
-    name: 'flagFactFindReady',
-    from: ['factFinding'],
-    to: 'factFindReady',
-    allowedRoles: ['lead_gen'],
-    trigger: 'user',
-  },
-  {
-    name: 'handOffToAdvice',
-    from: ['factFindReady'],
-    to: 'handedOffToAdvice',
-    allowedRoles: ['lead_gen'],
-    trigger: 'user',
-  },
+/**
+ * Source states from which lead-gen can fire `markLost` — every
+ * non-terminal state lead-gen still has access to. Once the
+ * DocuSign-driven `recordClientSigned` flips ownership to the advice
+ * tenant, lead-gen loses access; an offboarding decision becomes an
+ * admin/management deletion (out of band from the workflow).
+ */
+const LEAD_GEN_OWNED_STATES: readonly WorkflowState[] = [
+  'factFinding',
+  'draftingSOA',
+  'reviewingSOA',
+  'amendingSOA',
+  'presentingSOA',
+];
 
-  // onboarding
+export const TRANSITIONS: readonly WorkflowTransition[] = [
+  // ── Phase 1 → 2 ──────────────────────────────────────────────────
   {
     name: 'lockFactFind',
-    from: ['handedOffToAdvice'],
-    to: 'factFindLocked',
-    allowedRoles: ['adviser', 'uf_support'],
-    trigger: 'user',
-  },
-  {
-    name: 'sendToParaplanner',
-    from: ['factFindLocked'],
-    to: 'awaitingParaplanner',
-    allowedRoles: ['adviser'],
+    from: ['factFinding'],
+    to: 'draftingSOA',
+    // Per the production spec ("Fact Find locked" — paraplanner gets
+    // the client into their portal once the Fact Find is locked).
+    // The Fact Find lock itself is a flag on the row, not a workflow
+    // state; this transition fires when the paraplanner picks the
+    // locked client up.
+    allowedRoles: ['paraplanner'],
     trigger: 'user',
   },
 
-  // drafting
+  // ── Phase 2 (SOA Production loop) ────────────────────────────────
   {
-    name: 'claimByParaplanner',
-    from: ['awaitingParaplanner'],
-    to: 'paraplannerClaimed',
-    allowedRoles: ['paraplanner'],
-    trigger: 'user',
-  },
-  {
-    // The paraplanner can release voluntarily; the cron job
-    // (`auto-paraplanner-release`, REBUILD_PLAN §5.5) fires the same
-    // transition with trigger='cron'.
-    name: 'releaseClaim',
-    from: ['paraplannerClaimed'],
-    to: 'awaitingParaplanner',
-    allowedRoles: ['paraplanner'],
-    trigger: 'user',
-  },
-  {
-    // Fired by the SOA Wizard service when the paraplanner saves the
-    // first section. Never user-initiated.
-    name: 'firstSectionSaved',
-    from: ['paraplannerClaimed'],
-    to: 'draftingSOA',
-    allowedRoles: [],
-    trigger: 'system',
-  },
-  {
-    name: 'sendForReview',
-    from: ['draftingSOA', 'amendingSOA'],
+    name: 'sendSOAForReview',
+    from: ['draftingSOA'],
     to: 'reviewingSOA',
     allowedRoles: ['paraplanner'],
     trigger: 'user',
   },
   {
-    name: 'requestChanges',
+    name: 'requestSOAChanges',
     from: ['reviewingSOA'],
     to: 'amendingSOA',
     allowedRoles: ['adviser'],
     trigger: 'user',
   },
   {
-    // `resubmit` and `sendForReview` collapse semantically when the
-    // source is `amendingSOA` — keeping `resubmit` as a distinct
-    // event lets the audit log capture the round-trip.
-    name: 'resubmit',
+    // Modelled distinct from `sendSOAForReview` so the audit log can
+    // tell first-pass from a re-pass round-trip ("Resubmitted").
+    name: 'resubmitSOA',
     from: ['amendingSOA'],
     to: 'reviewingSOA',
     allowedRoles: ['paraplanner'],
     trigger: 'user',
   },
 
-  // presenting
+  // ── Phase 2 → 3 ──────────────────────────────────────────────────
   {
-    name: 'presentSOA',
+    // Adviser approves the SOA; service layer also creates the
+    // onboarding-pack draft in Envelopes as a side effect.
+    name: 'approveSOA',
     from: ['reviewingSOA'],
-    to: 'soaPresented',
+    to: 'presentingSOA',
     allowedRoles: ['adviser'],
     trigger: 'user',
-  },
-  {
-    name: 'recordAcceptance',
-    from: ['soaPresented'],
-    to: 'soaAccepted',
-    allowedRoles: ['adviser'],
-    trigger: 'user',
-  },
-  {
-    name: 'recordNotProceeding',
-    from: ['soaPresented'],
-    to: 'notProceeding',
-    allowedRoles: ['adviser'],
-    trigger: 'user',
-    requiresReason: true,
   },
 
-  // implementing
+  // ── Phase 3: DocuSign-driven tenant flip ─────────────────────────
+  {
+    // The DocuSign webhook on CSA envelope completion fires this. It
+    // is the moment ownership transfers from the lead-gen tenant to
+    // the destination advice tenant — both the row's `tenant_id` and
+    // the workflow state advance in the same transaction.
+    name: 'recordClientSigned',
+    from: ['presentingSOA'],
+    to: 'welcomeCallScheduled',
+    allowedRoles: [],
+    trigger: 'webhook',
+  },
+
+  // ── Phase 3 → 5 ──────────────────────────────────────────────────
   {
     name: 'startImplementation',
-    from: ['soaAccepted'],
-    to: 'implementing',
-    allowedRoles: ['ar_support'],
+    from: ['welcomeCallScheduled'],
+    to: 'implementingAdvice',
+    allowedRoles: ['adviser'],
     trigger: 'user',
-  },
-  {
-    name: 'closeImplementation',
-    from: ['implementing'],
-    to: 'implemented',
-    allowedRoles: ['ar_support'],
-    trigger: 'user',
-  },
-  {
-    // Auto-immediate per §5.4. Worker fires this the moment
-    // `closeImplementation` lands; modelled as a separate transition
-    // so the audit log records the phase boundary explicitly.
-    name: 'autoEnterServicing',
-    from: ['implemented'],
-    to: 'servicing',
-    allowedRoles: [],
-    trigger: 'system',
   },
 
-  // servicing — AR cadence
+  // ── Phase 3 → 4 (ROA / EO branch off welcomeCallScheduled) ───────
   {
-    // Cron `auto-ar-due` (BullMQ) fires this when `next_ar_date <= now()`.
-    name: 'autoFlagARDue',
-    from: ['servicing'],
-    to: 'arDue',
-    allowedRoles: [],
-    trigger: 'cron',
+    name: 'requestROAEO',
+    from: ['welcomeCallScheduled'],
+    to: 'draftingROAEO',
+    allowedRoles: ['adviser'],
+    trigger: 'user',
   },
   {
-    name: 'startARWizard',
-    from: ['arDue'],
-    to: 'arWizardActive',
+    name: 'sendROAEOForReview',
+    from: ['draftingROAEO'],
+    to: 'reviewingROAEO',
+    allowedRoles: ['paraplanner'],
+    trigger: 'user',
+  },
+  {
+    name: 'approveROAEO',
+    from: ['reviewingROAEO'],
+    to: 'implementingAdvice',
+    allowedRoles: ['adviser'],
+    trigger: 'user',
+  },
+
+  // ── Phase 5 (insurance amendment side branch — onboarding only) ──
+  {
+    // Dashed in the visual graph — fires from insurance pipeline
+    // step 2 (client changes) or step 6 (revised terms declined).
+    name: 'flagInsuranceAmendment',
+    from: ['implementingAdvice'],
+    to: 'insuranceAmendment',
+    allowedRoles: ['adviser'],
+    trigger: 'user',
+  },
+  {
+    name: 'requestInsuranceROAEO',
+    from: ['insuranceAmendment'],
+    to: 'draftingROAEO',
+    allowedRoles: ['adviser'],
+    trigger: 'user',
+  },
+  {
+    // Animated — pipeline resumes from paused step.
+    name: 'resolveInsuranceAmendment',
+    from: ['insuranceAmendment'],
+    to: 'implementingAdvice',
+    allowedRoles: ['adviser'],
+    trigger: 'user',
+  },
+
+  // ── Phase 5 → 7 (AR-client insurance amendment bypass) ───────────
+  {
+    // AR-client clients amend insurance via the AR Wizard rather than
+    // routing through `insuranceAmendment` (which is onboarding-only).
+    name: 'flagInsuranceAmendmentAR',
+    from: ['implementingAdvice'],
+    to: 'draftingAR',
     allowedRoles: ['ar_adviser'],
     trigger: 'user',
   },
+
+  // ── Phase 5 → 6 ──────────────────────────────────────────────────
   {
-    name: 'finaliseARWizard',
-    from: ['arWizardActive'],
+    // "Confirm & Update Baseline" — adviser/UF Support presses this
+    // when implementation work is wrapped up. There is no in-app
+    // reverse: a Manual Workflow Override in /admin is the only way
+    // to roll the client back from waitingForAR.
+    name: 'confirmImplementation',
+    from: ['implementingAdvice'],
+    to: 'waitingForAR',
+    allowedRoles: ['adviser', 'uf_support'],
+    trigger: 'user',
+  },
+
+  // ── Phase 5 / 6 → 7 (AR-due cron) ────────────────────────────────
+  {
+    // BullMQ cron `auto-ar-due` fires this on every client whose
+    // `next_ar_due_date <= today` from EITHER `implementingAdvice` or
+    // `waitingForAR`. Gated only on the date — legacy mid-
+    // implementation clients also flow through after 10 months.
+    // Client-side, AR Support / UF Support portals also fire on load
+    // with a session ref to prevent duplicate updates.
+    name: 'autoFlagARDue',
+    from: ['implementingAdvice', 'waitingForAR'],
+    to: 'dueForAR',
+    allowedRoles: [],
+    trigger: 'cron',
+  },
+
+  // ── Phase 7 cadence ──────────────────────────────────────────────
+  {
+    name: 'bookAR',
+    from: ['dueForAR'],
+    to: 'arBooked',
+    allowedRoles: ['ar_support'],
+    trigger: 'user',
+  },
+  {
+    name: 'requestARDocument',
+    from: ['arBooked'],
     to: 'draftingAR',
     allowedRoles: ['ar_adviser'],
     trigger: 'user',
@@ -258,61 +284,51 @@ export const TRANSITIONS: readonly WorkflowTransition[] = [
     name: 'sendARForReview',
     from: ['draftingAR'],
     to: 'reviewingAR',
-    allowedRoles: ['ar_adviser'],
+    allowedRoles: ['paraplanner'],
     trigger: 'user',
   },
   {
-    name: 'presentAR',
+    name: 'approveAR',
     from: ['reviewingAR'],
-    to: 'arPresented',
+    to: 'arComplete',
     allowedRoles: ['ar_adviser'],
     trigger: 'user',
   },
   {
-    name: 'completeAR',
-    from: ['arPresented'],
-    to: 'servicing',
+    // AR adviser self-serves the AR Wizard, skipping
+    // draftingAR / reviewingAR entirely. Dashed in the visual graph.
+    name: 'selfServeARComplete',
+    from: ['arBooked'],
+    to: 'arComplete',
     allowedRoles: ['ar_adviser'],
     trigger: 'user',
   },
 
-  // servicing — ROA / EO cadence
+  // ── Phase 7 → 5: DocuSign-driven cycle restart ───────────────────
   {
-    name: 'startROAEOWizard',
-    from: ['servicing'],
-    to: 'draftingROAEO',
-    allowedRoles: ['adviser', 'ar_adviser'],
-    trigger: 'user',
-  },
-  {
-    name: 'sendROAEOForReview',
-    from: ['draftingROAEO'],
-    to: 'reviewingROAEO',
-    allowedRoles: ['adviser'],
-    trigger: 'user',
-  },
-  {
-    name: 'completeROAEO',
-    from: ['reviewingROAEO'],
-    to: 'servicing',
-    allowedRoles: ['adviser'],
-    trigger: 'user',
+    // The reviewing-AR approve creates a new AR Pack draft in
+    // Envelopes; once the client signs that pack the DocuSign webhook
+    // resets `last_ar_completed_date`, sets a new `next_ar_due_date`
+    // (CSA signing date + 10 months), and lands the client back in
+    // `implementingAdvice` to complete the cycle.
+    name: 'recordARPackSigned',
+    from: ['arComplete'],
+    to: 'implementingAdvice',
+    allowedRoles: [],
+    trigger: 'webhook',
   },
 
-  // closed — wildcards
+  // ── Closed ───────────────────────────────────────────────────────
   {
+    // "Client Lost" button in the lead-gen portal. Covers both
+    // non-conversions and sign-refusals at presentingSOA. After
+    // ownership flips at `recordClientSigned`, lead-gen no longer has
+    // access to the client; an offboarding decision then becomes an
+    // admin/management deletion (out of band from the workflow).
     name: 'markLost',
-    from: WILDCARD,
+    from: LEAD_GEN_OWNED_STATES,
     to: 'lost',
-    allowedRoles: ['lead_gen', 'adviser'],
-    trigger: 'user',
-    requiresReason: true,
-  },
-  {
-    name: 'offboard',
-    from: WILDCARD,
-    to: 'offboarded',
-    allowedRoles: ['adviser', 'ar_support'],
+    allowedRoles: ['lead_gen'],
     trigger: 'user',
     requiresReason: true,
   },
@@ -331,8 +347,7 @@ export function getTransition(name: WorkflowTransitionName): WorkflowTransition 
 
 /**
  * `from === '*'` if the source is wildcard; otherwise an explicit
- * `from` array including only non-terminal states (a wildcard cannot
- * leave a terminal state — `lost → lost` etc. is meaningless).
+ * `from` array. Wildcard cannot leave a terminal state.
  */
 export function isFromMatch(transition: WorkflowTransition, current: WorkflowState): boolean {
   if (transition.from === WILDCARD) {

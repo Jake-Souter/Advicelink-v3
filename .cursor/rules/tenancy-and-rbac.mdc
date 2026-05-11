@@ -59,3 +59,15 @@ Background jobs carry `tenant_id` in the payload. Every processor's first action
 ## Frontend filtering is for ergonomics only
 
 Never rely on frontend filters for security. The server enforces visibility — the frontend is a UX optimisation.
+
+## Lead-gen tenancy and the `clients` row's three tenant pointers
+
+Two `tenants.kind` values: `'advice'` and `'lead_gen'` (REBUILD_PLAN §2.6, added in WP-5.5). Cross-tenant client creation is mediated by `lead_gen_grants`. The `clients` table (lands in WP-7) carries three tenant references:
+
+- `originating_lead_gen_tenant_id` — set at creation, never modified. Nullable for self-sourced clients.
+- `destination_advice_tenant_id` — set at creation, never modified. Required when the creator is a `lead_gen` user; validated server-side against `lead_gen_grants`.
+- `tenant_id` — the **active owner**. Equals the lead-gen tenant during phases 1–3 of the workflow; flips to the destination advice tenant inside the DocuSign `recordClientSigned` webhook handler, atomically with the `presentingSOA → welcomeCallScheduled` workflow transition.
+
+The RLS policy on `clients` admits BOTH named partner tenants for reads. Writes are gated by the active owner tenant, plus a pre-handover write window allowing the destination advice tenant during phases 2 + 3 (`draftingSOA`, `reviewingSOA`, `amendingSOA`, `presentingSOA`). Per-role / per-phase visibility is enforced by the service layer (`assertCanAccessClient`), not RLS.
+
+When `lead_gen` marks a client `lost` (the "Client Lost" button), the destination advice firm is **not** notified and does **not** see the row — terminal `lost` rows stay owned by the lead-gen tenant.

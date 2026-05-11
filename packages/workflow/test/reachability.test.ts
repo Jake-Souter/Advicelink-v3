@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { TRANSITIONS, type WorkflowTransition } from '../src/transitions.js';
-import { WORKFLOW_STATES, type WorkflowState } from '../src/states.js';
+import { TERMINAL_STATES, WORKFLOW_STATES, type WorkflowState } from '../src/states.js';
 
 /**
  * Builds an adjacency map `from → to[]` from the TRANSITIONS table.
@@ -17,9 +17,7 @@ function buildAdjacency(): Record<WorkflowState, Set<WorkflowState>> {
 
   for (const t of TRANSITIONS) {
     const fromStates: readonly WorkflowState[] =
-      t.from === '*'
-        ? WORKFLOW_STATES.filter((s) => s !== 'lost' && s !== 'notProceeding' && s !== 'offboarded')
-        : t.from;
+      t.from === '*' ? WORKFLOW_STATES.filter((s) => !TERMINAL_STATES.includes(s)) : t.from;
     for (const from of fromStates) {
       adj[from].add(t.to);
     }
@@ -44,24 +42,25 @@ function reachableFrom(start: WorkflowState): Set<WorkflowState> {
 }
 
 describe('reachability', () => {
-  it('every state is reachable from newLead', () => {
-    const reached = reachableFrom('newLead');
+  it('every state is reachable from factFinding', () => {
+    const reached = reachableFrom('factFinding');
     const unreachable = WORKFLOW_STATES.filter((s) => !reached.has(s));
-    expect(unreachable, `unreachable states from newLead: ${unreachable.join(', ')}`).toEqual([]);
+    expect(unreachable, `unreachable states from factFinding: ${unreachable.join(', ')}`).toEqual(
+      [],
+    );
   });
 
   it('terminal states have no outgoing transitions in the graph', () => {
     const adj = buildAdjacency();
-    expect([...adj.lost]).toEqual([]);
-    expect([...adj.notProceeding]).toEqual([]);
-    expect([...adj.offboarded]).toEqual([]);
+    for (const t of TERMINAL_STATES) {
+      expect([...adj[t]], `terminal state '${t}' has outgoing edges`).toEqual([]);
+    }
   });
 
   it('every non-terminal state has at least one outgoing transition (no dead-ends)', () => {
     const adj = buildAdjacency();
-    const terminals = new Set(['lost', 'notProceeding', 'offboarded']);
     for (const s of WORKFLOW_STATES) {
-      if (terminals.has(s)) continue;
+      if (TERMINAL_STATES.includes(s)) continue;
       expect(adj[s].size, `'${s}' has no outgoing transitions`).toBeGreaterThan(0);
     }
   });
@@ -81,40 +80,85 @@ describe('reachability', () => {
     }
   });
 
-  it('happy-path lifecycle is walkable end-to-end', () => {
-    // Concrete user journey: lead → … → arPresented → servicing
-    // Every step is a transition that exists in the table.
+  it('happy-path lifecycle is walkable end-to-end (lead → onboarding → first AR cycle)', () => {
+    // Concrete user journey through every phase. Each row is a
+    // (from, transitionName, to) triple; we assert the transition
+    // exists and accepts that source/target.
     const happyPath: Array<[WorkflowState, WorkflowTransition['name'], WorkflowState]> = [
-      ['newLead', 'startFactFind', 'factFinding'],
-      ['factFinding', 'flagFactFindReady', 'factFindReady'],
-      ['factFindReady', 'handOffToAdvice', 'handedOffToAdvice'],
-      ['handedOffToAdvice', 'lockFactFind', 'factFindLocked'],
-      ['factFindLocked', 'sendToParaplanner', 'awaitingParaplanner'],
-      ['awaitingParaplanner', 'claimByParaplanner', 'paraplannerClaimed'],
-      ['paraplannerClaimed', 'firstSectionSaved', 'draftingSOA'],
-      ['draftingSOA', 'sendForReview', 'reviewingSOA'],
-      ['reviewingSOA', 'presentSOA', 'soaPresented'],
-      ['soaPresented', 'recordAcceptance', 'soaAccepted'],
-      ['soaAccepted', 'startImplementation', 'implementing'],
-      ['implementing', 'closeImplementation', 'implemented'],
-      ['implemented', 'autoEnterServicing', 'servicing'],
-      ['servicing', 'autoFlagARDue', 'arDue'],
-      ['arDue', 'startARWizard', 'arWizardActive'],
-      ['arWizardActive', 'finaliseARWizard', 'draftingAR'],
+      // Phase 1 → 2
+      ['factFinding', 'lockFactFind', 'draftingSOA'],
+      // Phase 2 (with one amend round-trip)
+      ['draftingSOA', 'sendSOAForReview', 'reviewingSOA'],
+      ['reviewingSOA', 'requestSOAChanges', 'amendingSOA'],
+      ['amendingSOA', 'resubmitSOA', 'reviewingSOA'],
+      // Phase 2 → 3
+      ['reviewingSOA', 'approveSOA', 'presentingSOA'],
+      // Phase 3: DocuSign-driven tenant flip
+      ['presentingSOA', 'recordClientSigned', 'welcomeCallScheduled'],
+      // Phase 3 → 5
+      ['welcomeCallScheduled', 'startImplementation', 'implementingAdvice'],
+      // Phase 5 → 6
+      ['implementingAdvice', 'confirmImplementation', 'waitingForAR'],
+      // Phase 6 → 7 (cron)
+      ['waitingForAR', 'autoFlagARDue', 'dueForAR'],
+      // Phase 7 cadence
+      ['dueForAR', 'bookAR', 'arBooked'],
+      ['arBooked', 'requestARDocument', 'draftingAR'],
       ['draftingAR', 'sendARForReview', 'reviewingAR'],
-      ['reviewingAR', 'presentAR', 'arPresented'],
-      ['arPresented', 'completeAR', 'servicing'],
+      ['reviewingAR', 'approveAR', 'arComplete'],
+      // Phase 7 → 5 cycle restart
+      ['arComplete', 'recordARPackSigned', 'implementingAdvice'],
     ];
 
     for (const [from, name, to] of happyPath) {
       const t = TRANSITIONS.find((x) => x.name === name);
       expect(t, `missing transition '${name}'`).toBeDefined();
       expect(t!.to, `'${name}' does not target '${to}'`).toBe(to);
-      const ok =
-        t!.from === '*'
-          ? from !== 'lost' && from !== 'notProceeding' && from !== 'offboarded'
-          : t!.from.includes(from);
+      const ok = t!.from === '*' ? !TERMINAL_STATES.includes(from) : t!.from.includes(from);
       expect(ok, `'${name}' cannot fire from '${from}'`).toBe(true);
+    }
+  });
+
+  it('side branches are walkable (insurance amendment + ROA/EO + self-serve AR)', () => {
+    const branches: Array<[WorkflowState, WorkflowTransition['name'], WorkflowState]> = [
+      // ROA / EO off welcomeCallScheduled
+      ['welcomeCallScheduled', 'requestROAEO', 'draftingROAEO'],
+      ['draftingROAEO', 'sendROAEOForReview', 'reviewingROAEO'],
+      ['reviewingROAEO', 'approveROAEO', 'implementingAdvice'],
+      // Insurance amendment (onboarding)
+      ['implementingAdvice', 'flagInsuranceAmendment', 'insuranceAmendment'],
+      ['insuranceAmendment', 'requestInsuranceROAEO', 'draftingROAEO'],
+      ['insuranceAmendment', 'resolveInsuranceAmendment', 'implementingAdvice'],
+      // Insurance amendment (AR client bypass)
+      ['implementingAdvice', 'flagInsuranceAmendmentAR', 'draftingAR'],
+      // Self-serve AR
+      ['arBooked', 'selfServeARComplete', 'arComplete'],
+      // AR-due fires from implementingAdvice as well as waitingForAR
+      ['implementingAdvice', 'autoFlagARDue', 'dueForAR'],
+    ];
+
+    for (const [from, name, to] of branches) {
+      const t = TRANSITIONS.find((x) => x.name === name);
+      expect(t, `missing transition '${name}'`).toBeDefined();
+      expect(t!.to, `'${name}' does not target '${to}'`).toBe(to);
+      const ok = t!.from === '*' ? !TERMINAL_STATES.includes(from) : t!.from.includes(from);
+      expect(ok, `'${name}' cannot fire from '${from}'`).toBe(true);
+    }
+  });
+
+  it('lost is reachable from every lead-gen-owned non-terminal state', () => {
+    const markLost = TRANSITIONS.find((t) => t.name === 'markLost')!;
+    expect(markLost.to).toBe('lost');
+    for (const state of [
+      'factFinding',
+      'draftingSOA',
+      'reviewingSOA',
+      'amendingSOA',
+      'presentingSOA',
+    ] as const) {
+      const ok =
+        markLost.from === '*' ? !TERMINAL_STATES.includes(state) : markLost.from.includes(state);
+      expect(ok, `markLost should fire from '${state}'`).toBe(true);
     }
   });
 });

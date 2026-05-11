@@ -158,6 +158,108 @@ the tenant's first super-admin.
 See §10.7 for the brand-themeability spec. Every document, email, login screen,
 and DOCX export must respect the resolved tenant's brand bundle.
 
+### 2.6 Lead-gen tenancy (cross-tenant client creation)
+
+Added in WP-5.5. Advicelink supports two tenant kinds, discriminated
+by `tenants.kind`:
+
+- **`'advice'`** — a financial advice firm. Owns advisers,
+  paraplanners, AR support, etc. Every signed onboarding pack
+  ultimately lands in an advice tenant.
+- **`'lead_gen'`** — an external lead-generation agency that captures
+  leads on behalf of one or more advice firms. Owns lead-gen users
+  only. Has no paraplanners, advisers, or AR roles.
+
+#### 2.6.1 Cross-tenant access via `lead_gen_grants`
+
+A grant is a row in `lead_gen_grants`:
+`(lead_gen_tenant_id, advice_tenant_id, granted_by_user_id, granted_at,
+revoked_at)`. Issued by a `tenant_super_admin` of the **advice** firm
+via the "Lead-gen partners" admin page; soft-revoked by setting
+`revoked_at`. A partial unique index on
+`(lead_gen_tenant_id, advice_tenant_id) WHERE revoked_at IS NULL`
+enforces "one active grant per pair" while preserving history. The
+agency cannot self-grant.
+
+A trigger on `lead_gen_grants` enforces that
+`tenants(lead_gen_tenant_id).kind = 'lead_gen'` and
+`tenants(advice_tenant_id).kind = 'advice'` so the rows can never
+mis-shape.
+
+#### 2.6.2 The `clients` row carries three tenant pointers
+
+When the `clients` table lands in WP-7 it has three tenant
+references, two immutable, one that flips:
+
+- `originating_lead_gen_tenant_id` — the agency that captured the
+  lead. **Set at creation, never modified.** Nullable to allow
+  self-sourced clients (no agency was involved); non-null for every
+  client created by a `lead_gen` user.
+- `destination_advice_tenant_id` — the advice firm the lead is sold
+  to. **Set at creation, never modified.** Required to be non-null
+  for any client created by a `lead_gen` user; chosen at the
+  lead-creation form from the agency's granted-firms dropdown and
+  validated server-side against `lead_gen_grants`.
+- `tenant_id` — the **active owner**. Equals the lead-gen tenant
+  during phases 1–3 of the workflow (factFinding through
+  presentingSOA), and equals the advice tenant from
+  `welcomeCallScheduled` onwards. The flip is an atomic transaction
+  inside the DocuSign webhook handler that processes the CSA
+  signature: the `tenant_id` UPDATE and the
+  `presentingSOA → welcomeCallScheduled` workflow transition land
+  together. Terminal `lost` rows keep `tenant_id` pinned to the
+  lead-gen tenant.
+
+#### 2.6.3 Dual-tenant RLS on `clients`
+
+The `clients` policy (defined when the table is created in WP-7)
+admits BOTH named partner tenants for reads, and gates writes by the
+active owner tenant plus a pre-handover write window for the SOA
+production team:
+
+```sql
+USING (
+  app_current_user_role() = 'platform_super_admin'
+  OR app_current_tenant_id() IN (
+    originating_lead_gen_tenant_id,
+    destination_advice_tenant_id
+  )
+)
+WITH CHECK (
+  -- Default: writes only from the active owner tenant.
+  app_current_tenant_id() = tenant_id
+
+  -- Pre-handover SOA-production write window: the destination advice
+  -- firm's paraplanner / adviser / uf_support can write to a row
+  -- still owned by the lead-gen tenant during phases 2 + 3.
+  OR (
+    app_current_tenant_id() = destination_advice_tenant_id
+    AND tenant_id = originating_lead_gen_tenant_id
+  )
+)
+```
+
+Per-role / per-phase visibility (e.g. "advice-tenant `paraplanner`
+should only see this row during `draftingSOA / reviewingSOA /
+amendingSOA`") is enforced by the application layer's
+`assertCanAccessClient(userId, clientId)` helper plus the page access
+matrix (§4.4) — RLS is the perimeter, the app layer is the
+ergonomics.
+
+#### 2.6.4 Privacy of lead-gen losses
+
+When lead-gen marks a client `lost` (the "Client Lost" button), the
+destination advice firm is **not** notified and does **not** see the
+row. The terminal `lost` state stays owned by the lead-gen tenant;
+the destination tenant's view of "leads in flight" simply never sees
+that row.
+
+Future grants management surface, lead-gen agency portals, and the
+lead-creation form for cross-tenant scenarios are scoped to a later
+WP — WP-5.5 ships the schema (`tenants.kind`, `lead_gen_grants`) and
+the workflow contract; WP-7 adds the `clients` table with the
+dual-tenant RLS policy above.
+
 ---
 
 ## 3. High-level architecture
@@ -305,30 +407,43 @@ frontend only filters for ergonomics, never for security.
 
 ### 4.5 Paraplanner claim mechanic
 
-When an adviser flips a client into `awaitingParaplanner`, the client appears
-in the **Paraplanner Portal Available queue** of every paraplanner on the
-advisory team (or in the shared paraplanner pool the advisory team has been
-configured to draw from — see §10.6).
+The paraplanner claim is a **column on `clients`**, not a workflow
+state. (Updated in WP-5.5 to match production.) Claim, release, and
+auto-release manipulate `claimed_paraplanner_id` + `claimed_at`
+without ever changing `workflow_state`.
+
+The first paraplanner action — `lockFactFind` — moves the client from
+`factFinding` into `draftingSOA`. From the moment the client enters
+`draftingSOA` it appears in the Paraplanner Portal **Available queue**
+of every paraplanner on the advisory team (or in the shared
+paraplanner pool the advisory team has been configured to draw from
+— see §10.6).
 
 A paraplanner clicks **Claim** to take exclusive ownership. The claim:
 
-- Sets `client.claimed_paraplanner_id = user.id`,
-  `client.claimed_at = now()`, and a workflow event of type
-  `paraplannerClaimed`.
+- Sets `client.claimed_paraplanner_id = user.id` and
+  `client.claimed_at = now()`.
+- Appends an `audit_log` row of action `paraplanner.claimed`.
 - Hides the client from other paraplanners' Available queue.
 - Surfaces the client in the claimer's **Claimed** queue.
 
-A paraplanner can **release** at any time — or it auto-releases. Auto-release
-runs via the BullMQ `cron` queue every 60 minutes:
+A paraplanner can **release** at any time — or it auto-releases:
 
-- If the paraplanner has had no edit activity on `claimed_paraplanner_id =
-  user.id` clients in the last 7 days **and** the client has been claimed for
-  ≥ 7 days, release.
-- Releasing clears `claimed_paraplanner_id`, sets `claimed_at = null`, and
-  emits a `paraplannerAutoReleased` workflow event.
+- The cron job `auto-paraplanner-release` runs hourly. Any client
+  whose `workflow_state IN ('draftingSOA', 'amendingSOA')` and
+  `claimed_at <= now() - tenant.config.paraplanner_release_window`
+  has its claim cleared. The default window is **48 hours**;
+  configurable per tenant in §10.5.
+- `reviewingSOA` is excluded — once the SOA has been sent for
+  review the adviser holds the work; the paraplanner's claim sitting
+  idle is not a stalling signal.
+- Releasing clears `claimed_paraplanner_id`, sets `claimed_at =
+  NULL`, and appends an `audit_log` row of action
+  `paraplanner.auto_released`.
 
-A `tenant_super_admin` and the assigned `adviser` can also force-release a
-claim. All claims/releases are entries in the audit log.
+A `tenant_super_admin` and the assigned `adviser` can also
+force-release a claim. All claims/releases are entries in the audit
+log.
 
 ### 4.6 Server-side enforcement
 
@@ -352,132 +467,182 @@ render workflow chips, decide which CTAs to show, and validate transitions
 optimistically; the backend imports the same package to authoritatively check
 and apply transitions. **Stringly-typed status comparisons elsewhere in the
 codebase are forbidden** (eslint rule `no-restricted-syntax` with a custom
-selector).
+selector keyed off `WORKFLOW_STATES`).
+
+This section was rewritten in WP-5.5 to match the production
+WORKFLOW_NODES tuple. The shipped state machine has 16 active states + 1
+terminal across 8 macro phases, and 23 named transitions.
 
 ### 5.1 Macro phases
 
-The state has six macro phases, used purely for grouping in the UI:
+| # | Phase | Member states | Owning team(s) |
+|---|---|---|---|
+| 1 | **Fact Find** | `factFinding` | Lead Generators |
+| 2 | **SOA Production** | `draftingSOA`, `reviewingSOA`, `amendingSOA` | Paraplanners (advice tenant) → Advisers (advice tenant) → Paraplanners (advice tenant) |
+| 3 | **Presentation** | `presentingSOA`, `welcomeCallScheduled` | Lead Generators (presenting + signing) → Advisers (welcome call) |
+| 4 | **Post-Advice** (optional) | `draftingROAEO`, `reviewingROAEO` | Paraplanners → Advisers |
+| 5 | **Complete** | `implementingAdvice`, `insuranceAmendment` | UF Support, Advisers |
+| 6 | **Waiting** | `waitingForAR` | AR Support |
+| 7 | **Annual Review** | `dueForAR`, `arBooked`, `draftingAR`, `reviewingAR`, `arComplete` | AR Support → AR Advisers → Paraplanners → AR Advisers |
+| 8 | **Closed** | `lost` | Terminal |
 
-1. **Capture** — Marketing-owned.
-2. **Onboarding** — Advice-owned, pre-Fact-Find lock.
-3. **Drafting** — SOA Wizard build.
-4. **Presenting** — SOA delivery and acceptance.
-5. **Implementing** — Implementation Checklist.
-6. **Servicing** — Annual Reviews and the ROA / EO Wizard for in-flight changes.
+The lead-gen tenant owns the row through phases 1–3 (`factFinding`
+through `presentingSOA`); the DocuSign-driven `recordClientSigned`
+transition flips ownership to the destination advice tenant and lands
+the client in `welcomeCallScheduled`.
 
-A 7th terminal phase **Closed** holds `lost`, `notProceeding`, `offboarded`.
+Long-term offboarding ("we're firing this client years into ongoing
+service") is **not** a workflow state — it's an admin/management
+action that deletes the client row, audited via `admin_audit_log`.
 
 ### 5.2 States
 
 ```
-capture
-  newLead                  (Marketing owns)
-  factFinding              (Marketing owns; Fact Find started)
-  factFindReady            (Marketing flag: ready to hand off)
+factFind
+  factFinding              (Lead Gen captures + qualifies; Fact Find lock is a flag, not a state)
 
-onboarding
-  handedOffToAdvice        (Advice owns; Fact Find lock about to apply)
-  factFindLocked           (Adviser confirmed Fact Find is final)
+soaProduction
+  draftingSOA              (paraplanner — claim is a column, claimed_paraplanner_id, not a state)
+  reviewingSOA             (adviser reviewing)
+  amendingSOA              (paraplanner addressing comments)
 
-drafting
-  awaitingParaplanner      (in paraplanner queue)
-  paraplannerClaimed       (paraplanner working in SOA Wizard)
-  draftingSOA              (paraplanner has saved at least one section)
-  reviewingSOA             (adviser reviewing the SOA Wizard output)
-  amendingSOA              (paraplanner addressing review comments)
+presentation
+  presentingSOA            (Lead Gen presents + chases CSA signature; lead-gen tenant still owns)
+  welcomeCallScheduled     (advice tenant owns post-DocuSign; adviser schedules / runs welcome call)
 
-presenting
-  soaPresented             (adviser has presented the SOA to client)
-  soaAccepted              (client signed engagement)
+postAdvice                 (optional branch off welcomeCallScheduled)
+  draftingROAEO            (paraplanner drafting a Record Of Advice / Engagement Outline)
+  reviewingROAEO           (adviser reviewing)
 
-implementing
-  implementing             (Implementation Checklist active)
-  implemented              (all checklist items complete)
+complete
+  implementingAdvice       (UF Support working the implementation pipeline)
+  insuranceAmendment       (adviser holding state; onboarding-only side branch)
 
-servicing
-  servicing                (steady state; no AR currently active)
-  arDue                    (auto-flagged when next_ar_date elapses)
-  arWizardActive           (AR Wizard in progress)
-  draftingROAEO            (ROA / EO Wizard active for an in-flight change)
-  reviewingROAEO           (ROA / EO Wizard ready for adviser review)
-  draftingAR               (AR document being drafted)
-  reviewingAR              (AR document being reviewed)
-  arPresented              (AR letter presented to client)
+waiting
+  waitingForAR             (AR Support parking state; "Confirm & Update Baseline" was clicked)
+
+annualReview
+  dueForAR                 (cron auto-flagged when next_ar_due_date <= today)
+  arBooked                 (AR Support has scheduled the AR meeting)
+  draftingAR               (paraplanner drafting AR document, OR ar_adviser via the AR Wizard)
+  reviewingAR              (ar_adviser reviewing)
+  arComplete               (briefly; cleared back to implementingAdvice via DocuSign on the new CSA)
 
 closed
-  lost
-  notProceeding
-  offboarded
+  lost                     (Lead Gen pressed "Client Lost" — covers non-conversion AND sign-refusal)
 ```
 
-### 5.3 Phase ownership
+### 5.3 Transitions
 
-| Phase | Owning role(s) |
-|---|---|
-| `capture.*` | `lead_gen` |
-| `onboarding.*` | `adviser`, `uf_support` |
-| `drafting.*` | `paraplanner`, `adviser` (review) |
-| `presenting.*` | `adviser` |
-| `implementing.*` | `ar_support`, `adviser` |
-| `servicing.servicing` | `ar_support` |
-| `servicing.ar*`, `servicing.draftingROAEO`, `servicing.reviewingROAEO` | `ar_adviser`, `adviser` |
-| `closed.*` | any with read access |
-
-### 5.4 Transitions
-
-A non-exhaustive list of named transitions:
+The full table (every edge is an entry in
+`packages/workflow/src/transitions.ts`):
 
 ```
-newLead          → factFinding         : startFactFind         (lead_gen)
-factFinding      → factFindReady       : flagFactFindReady     (lead_gen)
-factFindReady    → handedOffToAdvice   : handOffToAdvice       (lead_gen)
-handedOffToAdvice→ factFindLocked      : lockFactFind          (adviser, uf_support)
-factFindLocked   → awaitingParaplanner : sendToParaplanner     (adviser)
-awaitingParaplanner → paraplannerClaimed : claimByParaplanner  (paraplanner)
-paraplannerClaimed → awaitingParaplanner: releaseClaim         (paraplanner | system)
-paraplannerClaimed → draftingSOA       : firstSectionSaved     (system, on save)
-draftingSOA      → reviewingSOA        : sendForReview         (paraplanner)
-reviewingSOA     → amendingSOA         : requestChanges        (adviser)
-amendingSOA      → reviewingSOA        : resubmit              (paraplanner)
-reviewingSOA     → soaPresented        : presentSOA            (adviser)
-soaPresented     → soaAccepted         : recordAcceptance      (adviser)
-soaPresented     → notProceeding       : recordNotProceeding   (adviser)
-soaAccepted      → implementing        : startImplementation   (ar_support)
-implementing     → implemented         : closeImplementation   (ar_support)
-implemented      → servicing           : (auto, immediate)
-servicing        → arDue               : (auto, on date)
-arDue            → arWizardActive      : startARWizard         (ar_adviser)
-arWizardActive   → draftingAR          : finaliseARWizard      (ar_adviser)
-draftingAR       → reviewingAR         : sendARForReview       (ar_adviser)
-reviewingAR      → arPresented         : presentAR             (ar_adviser)
-arPresented      → servicing           : completeAR            (ar_adviser)
-servicing        → draftingROAEO       : startROAEOWizard      (adviser, ar_adviser)
-draftingROAEO    → reviewingROAEO      : sendROAEOForReview    (adviser)
-reviewingROAEO   → servicing           : completeROAEO         (adviser)
-*                → lost                : markLost              (lead_gen, adviser)
-*                → offboarded          : offboard              (adviser, ar_support)
+# Phase 1 → 2
+factFinding           → draftingSOA           : lockFactFind             (paraplanner)
+
+# Phase 2 (SOA Production loop)
+draftingSOA           → reviewingSOA          : sendSOAForReview         (paraplanner)
+reviewingSOA          → amendingSOA           : requestSOAChanges        (adviser)
+amendingSOA           → reviewingSOA          : resubmitSOA              (paraplanner)
+
+# Phase 2 → 3
+reviewingSOA          → presentingSOA         : approveSOA               (adviser; service layer creates onboarding pack draft)
+
+# Phase 3: DocuSign-driven tenant flip (CSA signed)
+presentingSOA         → welcomeCallScheduled  : recordClientSigned       (webhook; flips clients.tenant_id)
+
+# Phase 3 → 5
+welcomeCallScheduled  → implementingAdvice    : startImplementation      (adviser)
+
+# Phase 3 → 4 (ROA/EO branch)
+welcomeCallScheduled  → draftingROAEO         : requestROAEO             (adviser)
+draftingROAEO         → reviewingROAEO        : sendROAEOForReview       (paraplanner)
+reviewingROAEO        → implementingAdvice    : approveROAEO             (adviser)
+
+# Phase 5 (insurance amendment side branch — onboarding only)
+implementingAdvice    → insuranceAmendment    : flagInsuranceAmendment   (adviser)
+insuranceAmendment    → draftingROAEO         : requestInsuranceROAEO    (adviser)
+insuranceAmendment    → implementingAdvice    : resolveInsuranceAmendment(adviser)
+
+# Phase 5 → 7 (AR-client insurance amendment bypass)
+implementingAdvice    → draftingAR            : flagInsuranceAmendmentAR (ar_adviser)
+
+# Phase 5 → 6
+implementingAdvice    → waitingForAR          : confirmImplementation    (adviser, uf_support)
+
+# Phase 5/6 → 7 (cron, gated only on next_ar_due_date)
+implementingAdvice    → dueForAR              : autoFlagARDue            (cron)
+waitingForAR          → dueForAR              : autoFlagARDue            (cron)
+
+# Phase 7 cadence
+dueForAR              → arBooked              : bookAR                   (ar_support)
+arBooked              → draftingAR            : requestARDocument        (ar_adviser)
+draftingAR            → reviewingAR           : sendARForReview          (paraplanner)
+reviewingAR           → arComplete            : approveAR                (ar_adviser)
+arBooked              → arComplete            : selfServeARComplete      (ar_adviser; AR Wizard self-serve bypass)
+
+# Phase 7 → 5: DocuSign-driven cycle restart on new CSA
+arComplete            → implementingAdvice    : recordARPackSigned       (webhook; sets last_ar_completed_date + new next_ar_due_date)
+
+# Closed
+{factFinding,draftingSOA,reviewingSOA,amendingSOA,presentingSOA}
+                      → lost                  : markLost                 (lead_gen; requiresReason)
 ```
+
+Trigger types: `user` (role-gated), `cron` (`autoFlagARDue`), `webhook`
+(`recordClientSigned`, `recordARPackSigned`), `system` (reserved for
+future server-internal triggers).
 
 Every transition records a `workflow_events` row containing `from`, `to`,
-`actor_id`, `timestamp`, and a free-form `reason` field (required for some
-transitions, e.g. `markLost` mandates a reason for compliance).
+`transition_name`, `actor_id`, `actor_tenant_id`, `timestamp`, `trigger`,
+and a free-form `reason` field (required for transitions whose
+`requiresReason: true`, e.g. `markLost`).
 
-### 5.5 Auto-transitions
+### 5.4 Auto-transitions
 
-Two cron jobs run every 30 minutes (BullMQ repeating jobs):
+Two automated transitions, both executable from BullMQ cron AND from
+the AR Support / UF Support portal on load (with a session ref that
+prevents duplicate updates within a tab):
 
-- `auto-ar-due`: any client where `state = servicing` and
-  `client.next_ar_date <= now()` is moved to `arDue` and the assigned AR
-  adviser is notified.
-- `auto-paraplanner-release`: any `paraplannerClaimed` client meeting the
-  release criteria in §4.5 transitions back to `awaitingParaplanner`.
+- **`auto-ar-due`**: every client whose `workflow_state IN
+  ('implementingAdvice', 'waitingForAR')` and `next_ar_due_date <=
+  today (Australia/Sydney)` is moved to `dueForAR`. Gated only on the
+  date — `implementation_confirmed` is intentionally NOT checked, so
+  legacy mid-implementation clients also flow through after 10 months.
+  Server-side cron runs hourly.
+- **`auto-paraplanner-release`**: any client with
+  `workflow_state IN ('draftingSOA', 'amendingSOA')` and a stale
+  `claimed_paraplanner_id` (per the threshold in §4.5; default 48h)
+  has its claim cleared. The workflow state does not change; only the
+  `claimed_paraplanner_id` and `claimed_at` columns reset. The
+  paraplanner can voluntarily release at any time via a button in
+  their portal (also clears the columns; no transition fires).
+
+The default AR cadence is **10 months from CSA signing** (matches the
+legacy default; the original plan said 12). Tenant-overridable in the
+admin config (§10.5). The DocuSign webhook on the onboarding pack OR
+the AR Pack is what writes `next_ar_due_date` —
+`computeNextArDueDate(csaSignedAt, cadenceMonths)` in
+`@advicelink/workflow` is the single computation site.
+
+### 5.5 Manual Workflow Override
+
+`confirmImplementation` (the "Confirm & Update Baseline" button on the
+implementation page) has no in-app reverse — there is no "Reopen"
+button. The only way to roll a client back from `waitingForAR` to
+`implementingAdvice` is the **Manual Workflow Override** in the admin
+page, which is audit-logged in `admin_audit_log` and gated to
+`tenant_super_admin` / `platform_super_admin`.
 
 ### 5.6 Workflow visualisation
 
-Every page that shows a client also shows a phase pill with the macro phase
-name and tooltip-listed micro state. The Workflow Maps admin page (§6.27)
-renders a Mermaid-style diagram of the entire machine with a heatmap of how
-many clients are in each state right now.
+Every page that shows a client also shows a phase pill with the macro
+phase name and the tooltip-listed micro state. The Workflow Maps admin
+page (§6.27) renders a Mermaid-style diagram of the entire machine
+with a heatmap of how many clients are in each state right now,
+flagging dashed/optional branches (`flagInsuranceAmendment`,
+`flagInsuranceAmendmentAR`, `selfServeARComplete`) distinctly.
 
 ---
 

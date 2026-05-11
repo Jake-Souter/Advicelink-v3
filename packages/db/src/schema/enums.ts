@@ -38,10 +38,25 @@ export const membershipSeat = pgEnum('membership_seat', [
 
 export const tenantStatus = pgEnum('tenant_status', ['active', 'suspended']);
 
+/**
+ * Tenant kind discriminates the two B2B-SaaS shapes Advicelink v3
+ * supports (REBUILD_PLAN §2.6, added in WP-5.5):
+ *
+ *  - `'advice'` — a financial advice firm (the legacy default; owns
+ *    advisers, paraplanners, AR support, etc., and is the destination
+ *    of every signed onboarding pack).
+ *  - `'lead_gen'` — an external lead-generation agency that captures
+ *    leads on behalf of one or more advice firms. Owns lead-gen users
+ *    only; cross-tenant access to the destination advice firm is
+ *    granted by `lead_gen_grants` rows.
+ */
+export const tenantKind = pgEnum('tenant_kind', ['advice', 'lead_gen']);
+
 export const calendarProvider = pgEnum('calendar_provider', ['microsoft', 'google']);
 
 export type UserRole = (typeof userRole.enumValues)[number];
 export type TeamType = (typeof teamType.enumValues)[number];
 export type MembershipSeat = (typeof membershipSeat.enumValues)[number];
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
+export type TenantKind = (typeof tenantKind.enumValues)[number];
 export type CalendarProvider = (typeof calendarProvider.enumValues)[number];

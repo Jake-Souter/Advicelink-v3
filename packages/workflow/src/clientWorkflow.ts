@@ -6,7 +6,7 @@ import {
   type WorkflowTransition,
   type WorkflowTransitionName,
 } from './transitions.js';
-import { WORKFLOW_STATES, type WorkflowState } from './states.js';
+import { TERMINAL_STATES, WORKFLOW_STATES, type WorkflowState } from './states.js';
 
 /**
  * The canonical XState v5 machine for the client workflow. This file
@@ -70,7 +70,7 @@ function buildStatesConfig(): Record<WorkflowState, { on: Record<string, OnEntry
   for (const transition of TRANSITIONS) {
     const fromStates: WorkflowState[] =
       transition.from === '*'
-        ? WORKFLOW_STATES.filter((s) => s !== 'lost' && s !== 'notProceeding' && s !== 'offboarded')
+        ? WORKFLOW_STATES.filter((s) => !TERMINAL_STATES.includes(s))
         : [...transition.from];
 
     for (const from of fromStates) {
@@ -94,7 +94,13 @@ function makeGuard(
     // the source state matches). We synthesise a `subject` shape from
     // the transition's first allowed `from` so canTransition's
     // signature stays uniform.
-    const fromState = transition.from === '*' ? 'newLead' : transition.from[0];
+    // For wildcard transitions, pick the first non-terminal state as
+    // a synthetic anchor — canTransition's guard logic doesn't depend
+    // on the specific source for wildcards beyond "is it terminal?".
+    const fromState =
+      transition.from === '*'
+        ? WORKFLOW_STATES.find((s) => !TERMINAL_STATES.includes(s))
+        : transition.from[0];
     if (!fromState) return false;
     const decision = canTransition(transition.name, { workflowState: fromState }, event.actor, {
       reason: event.reason,
@@ -116,7 +122,9 @@ export const clientWorkflowMachine: AnyStateMachine = setup({
   },
 }).createMachine({
   id: 'clientWorkflow',
-  initial: 'newLead',
+  // Lead-gen captures every client into `factFinding` via the lead-
+  // creation form — there is no "newLead" pre-state in v3 (REBUILD_PLAN §5).
+  initial: 'factFinding',
   context: { actor: null, reason: null },
   states: buildStatesConfig(),
 });

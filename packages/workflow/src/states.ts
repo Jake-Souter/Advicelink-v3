@@ -2,61 +2,77 @@
  * Workflow phase + state catalogues.
  *
  * The state machine itself lives in `clientWorkflow.ts`; this file is
- * the typed source of truth that everything else (`transitions.ts`, the
- * machine, the canTransition helper, the lint rule) reads.
+ * the typed source of truth that everything else (`transitions.ts`,
+ * the machine, the canTransition helper, the lint rule) reads.
  *
- * REBUILD_PLAN.md §5.1 + §5.2.
+ * Authoritative spec: REBUILD_PLAN.md §5 (rewritten for WP-5.5 to
+ * match production WORKFLOW_NODES — 16 active states + 1 closed
+ * across 8 phases).
  */
 
 export const WORKFLOW_PHASES = [
-  'capture',
-  'onboarding',
-  'drafting',
-  'presenting',
-  'implementing',
-  'servicing',
+  'factFind',
+  'soaProduction',
+  'presentation',
+  'postAdvice',
+  'complete',
+  'waiting',
+  'annualReview',
   'closed',
 ] as const;
 
 export type WorkflowPhase = (typeof WORKFLOW_PHASES)[number];
 
 /**
- * Every micro-state in the client lifecycle. Order intentionally mirrors
- * REBUILD_PLAN §5.2 so a side-by-side diff stays readable.
+ * Every micro-state in the client lifecycle.
+ *
+ * Order intentionally mirrors REBUILD_PLAN §5.2 (and the production
+ * WORKFLOW_NODES tuple) so a side-by-side diff stays readable. The
+ * paraplanner claim is a column on `clients` (claimed_paraplanner_id),
+ * NOT a workflow state — claiming and releasing a claim is data, not
+ * a transition.
  */
 export const WORKFLOW_STATES = [
-  // capture
-  'newLead',
+  // 1. Fact Find — lead-gen captures and qualifies the lead
   'factFinding',
-  'factFindReady',
-  // onboarding
-  'handedOffToAdvice',
-  'factFindLocked',
-  // drafting
-  'awaitingParaplanner',
-  'paraplannerClaimed',
+
+  // 2. SOA Production — paraplanner drafts, adviser reviews, loop
   'draftingSOA',
   'reviewingSOA',
   'amendingSOA',
-  // presenting
-  'soaPresented',
-  'soaAccepted',
-  // implementing
-  'implementing',
-  'implemented',
-  // servicing
-  'servicing',
-  'arDue',
-  'arWizardActive',
+
+  // 3. Presentation — lead-gen presents the SOA + onboarding pack;
+  //    DocuSign webhook on CSA signature flips ownership to the
+  //    advice tenant and lands the client in welcomeCallScheduled.
+  'presentingSOA',
+  'welcomeCallScheduled',
+
+  // 4. Post-Advice (optional) — ROA / EO branch off welcomeCallScheduled
   'draftingROAEO',
   'reviewingROAEO',
+
+  // 5. Complete — implementing the advice; insurance amendment is a
+  //    side branch reachable only during onboarding.
+  'implementingAdvice',
+  'insuranceAmendment',
+
+  // 6. Waiting — parking state once implementation is confirmed
+  'waitingForAR',
+
+  // 7. Annual Review — auto-flagged when nextArDueDate <= today,
+  //    booked, drafted, reviewed, completed, then DocuSign webhook
+  //    on the new CSA fires the cycle restart back to
+  //    implementingAdvice.
+  'dueForAR',
+  'arBooked',
   'draftingAR',
   'reviewingAR',
-  'arPresented',
-  // closed
+  'arComplete',
+
+  // 8. Closed — terminal for non-conversions and sign-refusals.
+  //    Long-term offboarding is an admin/management action that
+  //    deletes (or archives) the client row; not a workflow state.
   'lost',
-  'notProceeding',
-  'offboarded',
 ] as const;
 
 export type WorkflowState = (typeof WORKFLOW_STATES)[number];
@@ -67,38 +83,38 @@ export type WorkflowState = (typeof WORKFLOW_STATES)[number];
  * tables and a typo can never silently re-bucket a state.
  */
 export const STATE_TO_PHASE: Readonly<Record<WorkflowState, WorkflowPhase>> = {
-  newLead: 'capture',
-  factFinding: 'capture',
-  factFindReady: 'capture',
+  factFinding: 'factFind',
 
-  handedOffToAdvice: 'onboarding',
-  factFindLocked: 'onboarding',
+  draftingSOA: 'soaProduction',
+  reviewingSOA: 'soaProduction',
+  amendingSOA: 'soaProduction',
 
-  awaitingParaplanner: 'drafting',
-  paraplannerClaimed: 'drafting',
-  draftingSOA: 'drafting',
-  reviewingSOA: 'drafting',
-  amendingSOA: 'drafting',
+  presentingSOA: 'presentation',
+  welcomeCallScheduled: 'presentation',
 
-  soaPresented: 'presenting',
-  soaAccepted: 'presenting',
+  draftingROAEO: 'postAdvice',
+  reviewingROAEO: 'postAdvice',
 
-  implementing: 'implementing',
-  implemented: 'implementing',
+  implementingAdvice: 'complete',
+  insuranceAmendment: 'complete',
 
-  servicing: 'servicing',
-  arDue: 'servicing',
-  arWizardActive: 'servicing',
-  draftingROAEO: 'servicing',
-  reviewingROAEO: 'servicing',
-  draftingAR: 'servicing',
-  reviewingAR: 'servicing',
-  arPresented: 'servicing',
+  waitingForAR: 'waiting',
+
+  dueForAR: 'annualReview',
+  arBooked: 'annualReview',
+  draftingAR: 'annualReview',
+  reviewingAR: 'annualReview',
+  arComplete: 'annualReview',
 
   lost: 'closed',
-  notProceeding: 'closed',
-  offboarded: 'closed',
 };
+
+/**
+ * Terminal states — `'*'` source transitions and most user actions
+ * are blocked from these. Centralised so adding / renaming a closed
+ * state stays a one-line change.
+ */
+export const TERMINAL_STATES: readonly WorkflowState[] = ['lost'];
 
 /**
  * The minimum shape `isInPhase` / `isInState` / `canTransition` need
@@ -137,6 +153,11 @@ export function isInPhase(phase: WorkflowPhase, subject: WorkflowSubject): boole
 /** Lookup helper — useful for chip rendering. */
 export function phaseOf(state: WorkflowState): WorkflowPhase {
   return STATE_TO_PHASE[state];
+}
+
+/** True if the state has no outbound transitions (terminal). */
+export function isTerminalState(state: WorkflowState): boolean {
+  return TERMINAL_STATES.includes(state);
 }
 
 /** Type guard for unknown strings. */

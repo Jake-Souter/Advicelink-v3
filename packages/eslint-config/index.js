@@ -44,16 +44,19 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      // Two structural bans, enforced via no-restricted-syntax until the
-      // local `eslint-plugin-advicelink` lands:
+      // Two structural bans, enforced via no-restricted-syntax until
+      // the local `eslint-plugin-advicelink` lands:
       //   1. No env reads outside per-app config/env.ts (REBUILD_PLAN §11.5).
       //   2. No stringly-typed workflow-state comparisons outside
-      //      `@advicelink/workflow` (REBUILD_PLAN §5 + the workflow-machine
-      //      Cursor rule). The selector matches any string Literal whose
-      //      value is a known WORKFLOW_STATES name appearing inside a
-      //      BinaryExpression (`x === 'draftingSOA'`) OR an ArrayExpression
-      //      (`['arDue', 'arWizardActive'].includes(...)`). Keep this
-      //      regex in lockstep with `packages/workflow/src/states.ts`.
+      //      `@advicelink/workflow` (REBUILD_PLAN §5 + the
+      //      workflow-machine Cursor rule). The selector matches any
+      //      string Literal whose value is a known WORKFLOW_STATES
+      //      name appearing inside a BinaryExpression
+      //      (`x === 'draftingSOA'`) OR an ArrayExpression
+      //      (`['draftingSOA', 'reviewingSOA']`). Keep this regex in
+      //      lockstep with `packages/workflow/src/states.ts`. WP-5.5
+      //      collapsed the graph to 16 active states + 1 closed
+      //      (`lost`).
       'no-restricted-syntax': [
         'error',
         {
@@ -62,13 +65,13 @@ export default tseslint.config(
         },
         {
           selector:
-            'BinaryExpression > Literal[value=/^(newLead|factFinding|factFindReady|handedOffToAdvice|factFindLocked|awaitingParaplanner|paraplannerClaimed|draftingSOA|reviewingSOA|amendingSOA|soaPresented|soaAccepted|implementing|implemented|servicing|arDue|arWizardActive|draftingROAEO|reviewingROAEO|draftingAR|reviewingAR|arPresented|lost|notProceeding|offboarded)$/]',
+            'BinaryExpression > Literal[value=/^(factFinding|draftingSOA|reviewingSOA|amendingSOA|presentingSOA|welcomeCallScheduled|draftingROAEO|reviewingROAEO|implementingAdvice|insuranceAmendment|waitingForAR|dueForAR|arBooked|draftingAR|reviewingAR|arComplete|lost)$/]',
           message:
             "Don't compare workflow states as strings — use isInState/isInPhase/canTransition from @advicelink/workflow (REBUILD_PLAN §5).",
         },
         {
           selector:
-            'ArrayExpression > Literal[value=/^(newLead|factFinding|factFindReady|handedOffToAdvice|factFindLocked|awaitingParaplanner|paraplannerClaimed|draftingSOA|reviewingSOA|amendingSOA|soaPresented|soaAccepted|implementing|implemented|servicing|arDue|arWizardActive|draftingROAEO|reviewingROAEO|draftingAR|reviewingAR|arPresented|lost|notProceeding|offboarded)$/]',
+            'ArrayExpression > Literal[value=/^(factFinding|draftingSOA|reviewingSOA|amendingSOA|presentingSOA|welcomeCallScheduled|draftingROAEO|reviewingROAEO|implementingAdvice|insuranceAmendment|waitingForAR|dueForAR|arBooked|draftingAR|reviewingAR|arComplete|lost)$/]',
           message:
             "Don't list workflow states as string arrays — use isInPhase/transitionsAvailable from @advicelink/workflow (REBUILD_PLAN §5).",
         },

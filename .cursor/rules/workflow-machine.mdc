@@ -6,32 +6,45 @@ alwaysApply: false
 
 # Workflow state machine
 
-The client lifecycle is the XState v5 machine in `packages/workflow/src/clientWorkflow.ts`. Both the frontend and backend import this package — frontend for chips/CTAs/optimistic checks, backend for authoritative validation. See REBUILD_PLAN.md §5.
+The client lifecycle is the XState v5 machine in `packages/workflow/src/clientWorkflow.ts`. Both the frontend and backend import this package — frontend for chips/CTAs/optimistic checks, backend for authoritative validation. Authoritative spec: REBUILD_PLAN.md §5 (rewritten for WP-5.5).
 
 ## Required patterns
 
 ```ts
 // ❌ BAD — stringly-typed comparison (eslint will fail this)
 if (client.workflow_state === 'draftingSOA') { ... }
-if (['arDue', 'arWizardActive'].includes(client.workflow_state)) { ... }
+if (['draftingSOA', 'reviewingSOA'].includes(client.workflow_state)) { ... }
 
 // ✅ GOOD — use the helpers from packages/workflow
 import { isInPhase, canTransition, isInState } from '@advicelink/workflow';
 
-if (isInPhase('drafting', client)) { ... }
-if (canTransition('lockFactFind', client, user)) { ... }
+if (isInPhase('soaProduction', client)) { ... }
+if (canTransition('lockFactFind', client, user).ok) { ... }
 ```
 
 ## Transitions
 
-- Every transition is a named operation defined in the machine (e.g. `handOffToAdvice`, `lockFactFind`, `sendToParaplanner`, `claimByParaplanner`, `presentSOA`, `startARWizard`, `markLost`).
-- Every successful transition writes a `workflow_events` row with `from`, `to`, `transition_name`, `actor_id`, `reason`, `created_at`. Some transitions require a non-empty `reason` (e.g. `markLost`); declare the requirement in the machine guard, not in feature code.
-- New transitions must ship with `@xstate/test` model-based coverage in `packages/workflow/test/`.
+- 23 named transitions across 8 phases. Authoritative source is `packages/workflow/src/transitions.ts` (the TRANSITIONS table). The XState machine in `clientWorkflow.ts` is generated from it; never edit the machine directly.
+- Trigger types: `user` (role-gated), `cron` (`autoFlagARDue`), `webhook` (`recordClientSigned`, `recordARPackSigned`), `system` (reserved).
+- Every successful transition writes a `workflow_events` row with `from`, `to`, `transition_name`, `actor_id`, `actor_tenant_id`, `trigger`, `reason`, `created_at`. Some transitions require a non-empty `reason` (`markLost`); declare the requirement in TRANSITIONS via `requiresReason: true`, not in feature code.
+- New transitions must ship with happy-path + role-rejection + reachability test coverage in `packages/workflow/test/`.
+
+## DocuSign-driven transitions and the lead-gen tenant flip
+
+`recordClientSigned` (CSA signed on the onboarding pack) and `recordARPackSigned` (CSA signed on a new AR Pack) are `'webhook'` trigger transitions — fired by the DocuSign webhook handler, never by user actions. `recordClientSigned` is the moment ownership flips from the lead-gen tenant to the destination advice tenant; the `clients.tenant_id` UPDATE and the workflow transition land in the same DB transaction.
+
+## Paraplanner claim is a column, not a state
+
+`claimed_paraplanner_id` and `claimed_at` are columns on `clients`. Claim, release, and auto-release manipulate them without changing `workflow_state`. The auto-release predicate (`shouldAutoReleaseParaplannerClaim`) gates on `workflow_state IN ('draftingSOA', 'amendingSOA')`; `reviewingSOA` is excluded.
 
 ## Auto-transitions live in workers, not in services
 
-`auto-ar-due` and `auto-paraplanner-release` (§5.5) run on the BullMQ `cron` queue. Do not add ad-hoc setInterval/setTimeout transitions in the API. Do not write a second cron path elsewhere.
+`auto-ar-due` and `auto-paraplanner-release` (§5.4) run on the BullMQ `cron` queue. Do not add ad-hoc setInterval/setTimeout transitions in the API. Do not write a second cron path elsewhere. The pure predicates live in `@advicelink/workflow/autoTransitions.ts`; workers call them.
+
+## AR cadence
+
+Default cadence is **10 months** from CSA signing (`DEFAULT_AR_CADENCE_MONTHS`). Tenant-overridable in admin config (§10.5). Every CSA signing — onboarding pack OR AR Pack — re-computes `next_ar_due_date` via `computeNextArDueDate(csaSignedAt, cadenceMonths)`. Never compute the date inline.
 
 ## File-note auto-generation
 
-Significant transitions emit auto file notes via `createAutoFileNote` (sets `is_auto = true`, `source_event = <eventName>`). Triggers and templates are listed in §19.11 — add new triggers to the registry, do not inline note text in transition code.
+Significant transitions emit auto file notes via `createAutoFileNote` (sets `is_auto = true`, `source_event = <transitionName>`). Triggers and templates are listed in §19.11 — add new triggers to the registry, do not inline note text in transition code.
