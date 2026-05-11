@@ -1,0 +1,22 @@
+/*
+ * Default brand CSS variables. These are overwritten at runtime by
+ * <BrandThemeProvider> which derives the full palette from the resolved
+ * tenant brand bundle. The defaults here keep storybook and the unbranded
+ * preview environment legible.
+ */
+:root {
+  --ui-color-brand-primary: #0e2244;
+  --ui-color-brand-primary-hover: #0a1a36;
+  --ui-color-brand-primary-pressed: #061129;
+  --ui-color-brand-primary-contrast: #ffffff;
+  --ui-color-brand-primary-subtle: rgb(14 34 68 / 0.08);
+  --ui-color-brand-row-selection: #e6ecf6;
+
+  --ui-color-brand-accent: #2dd4bf;
+  --ui-color-brand-accent-hover: #1cb8a4;
+  --ui-color-brand-accent-pressed: #0f9b8a;
+  --ui-color-brand-accent-contrast: #0f172a;
+
+  --ui-font-family-sans: 'Inter', system-ui, sans-serif;
+  --ui-font-family-display: 'Inter', system-ui, sans-serif;
+}

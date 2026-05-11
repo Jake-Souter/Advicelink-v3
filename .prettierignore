@@ -1,0 +1,9 @@
+REBUILD_PLAN.md
+pnpm-lock.yaml
+**/dist/**
+**/build/**
+**/.next/**
+**/.turbo/**
+**/node_modules/**
+**/coverage/**
+**/routeTree.gen.ts

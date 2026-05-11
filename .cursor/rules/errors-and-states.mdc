@@ -1,0 +1,66 @@
+---
+description: Error envelope, UI surfacing, idempotency, and empty/loading/error states
+globs: apps/api/src/**/*.ts,apps/web/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Errors & states (§19.21, §19.22)
+
+## Server error envelope
+
+Every tRPC error returns this shape — set fields appropriately, do not leak stack traces, internal IDs, or PII into `message`.
+
+```ts
+{
+  code,         // tRPC: BAD_REQUEST | UNAUTHORIZED | FORBIDDEN | NOT_FOUND | CONFLICT | TOO_MANY_REQUESTS | INTERNAL_SERVER_ERROR
+  message,      // user-safe sentence
+  domainCode,   // narrower app code, e.g. 'fact-find/locked', 'workflow/illegal-transition', 'document/template-not-found'
+  fieldErrors,  // optional: { 'personal.firstName': 'Required', ... }
+  traceId,      // matches Sentry/Honeycomb; safe to display for support
+  retryable,    // bool; hint for client retry policy
+}
+```
+
+## Client-side surfacing — use the right treatment
+
+| Error | Treatment |
+|---|---|
+| `BAD_REQUEST` + fieldErrors | Inline under each field + summary banner |
+| `BAD_REQUEST` no fields | Toast (warning) |
+| `UNAUTHORIZED` | Redirect to login |
+| `FORBIDDEN` | Full-page `<ErrorState kind="forbidden" />` — never a toast |
+| `NOT_FOUND` | Full-page `<ErrorState kind="not-found" />` |
+| `CONFLICT` | Inline banner with the legal next-action |
+| `TOO_MANY_REQUESTS` | Toast with retry-in countdown (driven by `Retry-After`) |
+| `INTERNAL_SERVER_ERROR` | Toast with `traceId` + "Contact support"; auto-reported to Sentry |
+| Network offline | Persistent banner; background-sync queue resumes pending writes |
+
+## Idempotency — every side-effecting mutation
+
+Document renders, e-sign envelope creation, calendar event creation, and AI calls accept an `Idempotency-Key` header. The server stores the key in `idempotency_keys` (24h TTL) and replays the original response on duplicates. The frontend generates UUIDs per logical action and sends them automatically via the tRPC link.
+
+## Retries
+
+- Read queries: TanStack Query default — 3 retries with exponential backoff, ONLY on `429`/`5xx`.
+- Writes: never auto-retried by the client. Show the error and let the user choose. Exception: the offline-sync queue retries with backoff up to 6 attempts before escalating to a toast.
+
+## Empty / loading / error states — three semantic components only
+
+Use `<EmptyState>`, `<LoadingState>`, `<ErrorState>` from `packages/ui/src/semantic/`. Copy is calm and action-oriented. Illustrations are small token-coloured SVG marks; no stock photography. Default copy registry per surface lives in §19.22.
+
+```tsx
+// ❌ BAD — bespoke empty render with hard-coded copy and styling
+{!data?.length && <div className="text-gray-500 p-12 text-center">Nothing here yet</div>}
+
+// ✅ GOOD
+{!data?.length && (
+  <EmptyState
+    surface="paraplannerPortal.available"
+    primaryAction={{ label: 'Go to Available', onClick: ... }}
+  />
+)}
+```
+
+## Worker-driven progress
+
+DOCX render, AI assist, OmniLife quote: show an inline progress chip ("Rendering…", "Thinking…", "Quoting…") with a cancel button when cancellable. Never block the UI on a long-running worker.

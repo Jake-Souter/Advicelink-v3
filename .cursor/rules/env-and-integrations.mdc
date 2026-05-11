@@ -1,0 +1,71 @@
+---
+description: Env-var loading, Doppler secrets, and integration adapters behind ports
+globs: apps/**/*.ts,packages/**/*.ts
+alwaysApply: false
+---
+
+# Env vars, secrets, and integration adapters
+
+## Env reads only via the per-app loader (§11.5)
+
+Each app has exactly one Zod-validated env loader. Do not read `process.env` from any other file.
+
+```ts
+// ❌ BAD — process.env read outside the env loader
+const url = process.env.DATABASE_URL;
+
+// ✅ GOOD
+import { env } from '~/config/env';
+const url = env.DATABASE_URL;
+```
+
+Loaders live at:
+- `apps/api/src/config/env.ts`
+- `apps/workers/src/config/env.ts`
+- `apps/web/src/config/env.ts` (build-time, `VITE_*` only)
+
+Loaders fail fast on boot if any required var is missing or fails its `z.string().url()` etc. validation.
+
+## Env-var inventory (§19.19) — do not invent new names
+
+When adding a new var, follow the existing classification:
+- `[copies]` — same name as the legacy `.env`; copy across unchanged (e.g. `FIREBASE_PRIVATE_KEY`, `DOCUSIGN_INTEGRATION_KEY`, `OMNILIFE_USERNAME`, `SENDGRID_API_KEY`)
+- `[NEW]` — new for v3; create in Doppler/Railway (e.g. `DOCUSIGN_WEBHOOK_BASE_URL`, `MICROSOFT_REDIRECT_URI`, `SENDGRID_FROM_EMAIL`)
+- `[v3-only]` — does not exist in legacy (Postgres, Redis, S3, observability)
+
+`ANTHROPIC_API_KEY` is preferred; `CLAUDE_API_KEY` is accepted for a 30-day transition window with a deprecation warning.
+
+## No secrets in the repo
+
+- Doppler manages all secrets; Railway pulls from Doppler at deploy time.
+- Local dev uses `doppler run -- pnpm dev`. No `.env` file with real secrets in the repo.
+- The Firebase service account JSON for the API lives in Doppler as a single encrypted blob.
+
+## All third-party integrations live behind a port (`packages/<area>/`)
+
+Each external system has an adapter behind a stable port interface so providers can be swapped without touching feature code:
+
+| Port | Adapters at v1 | Phase B |
+|---|---|---|
+| `EsignPort` | DocuSign (JWT Grant) | Adobe Sign |
+| `CalendarPort` | Microsoft Graph | Google Calendar |
+| `InsuranceQuotePort` | OmniLife (Basic Auth, v4.58, TAL+Zurich only) | additional sources |
+| Research adapter | none at v1 (manual portfolios) | Lonsec |
+
+Feature code calls the port; never imports a vendor SDK directly.
+
+## OmniLife specifics (§19.12.6)
+
+- Basic Auth (NOT bearer). API version locked to **v4.58**.
+- Trial supplier set: TAL (`ACC`) and Zurich (`ZUR`). Codes outside the trial set are silently dropped; an empty resolved set falls back to all trial codes.
+- Quotes cached in Redis 60 minutes keyed by canonicalised request body.
+- `OMNILIFE_GROUP_ID` defaults to `'ExampleGroup'` when unset.
+- The locked reference is `docs/OmniLife-API-Reference.md` — any deviation needs that doc to change first.
+
+## DocuSign specifics (§19.12.2)
+
+JWT Grant (server integration) — never OAuth 3-leg. Scopes `signature` + `impersonation`. Connect webhooks verified via HMAC against `DOCUSIGN_WEBHOOK_SECRET`. `DOCUSIGN_BASE_URI` is `https://demo.docusign.net` for demo and `https://www.docusign.net` for prod (helper appends `/restapi`).
+
+## Lonsec is Phase B
+
+No Lonsec env vars at v1. Recommended Portfolios admin is populated by hand at launch. When Lonsec goes live, the pattern is "nightly batch + local cache" — end users never call Lonsec endpoints directly.

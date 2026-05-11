@@ -1,0 +1,45 @@
+---
+description: All Claude calls go through the AI prompt registry — never inline prompts
+globs: apps/api/src/**/*.ts,apps/workers/src/**/*.ts,packages/ai/**/*.ts
+alwaysApply: false
+---
+
+# AI / Claude usage (§9.4, §10.4, §19.12.9)
+
+Every Claude-backed feature MUST go through the registered prompt pipeline. No inline prompt strings in feature code.
+
+## The only entrypoint
+
+```ts
+// ❌ BAD — inline prompt, no audit, no redaction, no budget check
+const response = await anthropic.messages.create({
+  model: 'claude-3-7-sonnet-20250219',
+  messages: [{ role: 'user', content: `Summarise these goals: ${client.goals.next12Months}` }],
+});
+
+// ✅ GOOD — registered prompt key, automatic redaction + audit + budget enforcement
+import { callClaude } from '@advicelink/ai';
+
+const result = await callClaude('soaWizard.goals.assist', { client }, ctx);
+```
+
+## Registry shape (§10.4)
+
+Prompts are registered in `packages/ai/src/registry.ts` keyed by `promptKey` (e.g. `factFindGoals`, `soaWizard.cover.assist`, `soaWizard.strategyRecommendations.assist`, `arWizardReasons`, `fileNoteGenerator`). Each entry has: `systemPrompt`, `userTemplate`, `inputSchema`, `outputSchema`, `redaction`, `model`, `temperature`, `maxTokens`, `costCapCentsPerCall`, `enabled`.
+
+Tenant-level overrides are managed via the AI Prompts admin page; do not branch on `tenant_id` inside the prompt registry — the override pipeline handles it.
+
+## `callClaude` does the following automatically
+
+1. Looks up the prompt template (never inline a prompt string).
+2. Redacts PII per the prompt's `redaction.fields` list (mode `mask` or `omit`). PII fields list lives in §19.16.
+3. Records the invocation in `ai_invocations` (tokens, cost, latency, redacted in/out).
+4. Enforces tenant `aiBudgetUsdPerMonth` (default 200 USD); over-budget → fails closed with a "Contact your tenant admin" error.
+
+## Sensitive fields that MUST be redacted before any Claude call
+
+`personal.taxFileNumber`, `personal.partnerTaxFileNumber`, `personal.healthNotes`, `insuranceClaim.notes`, all insurance underwriting notes. See §19.16.
+
+## Env vars
+
+Use `ANTHROPIC_API_KEY` (preferred). The legacy `CLAUDE_API_KEY` is accepted by `apps/api/src/config/env.ts` for a 30-day transition with a deprecation warning. Default model: `claude-3-7-sonnet-20250219` (override in registry per prompt).

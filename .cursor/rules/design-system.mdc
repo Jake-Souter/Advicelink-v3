@@ -1,0 +1,63 @@
+---
+description: Frontend design system — layered components, tokens only, no styling in pages
+globs: apps/web/**/*.{ts,tsx},packages/ui/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Design system rules (non-negotiable, §11.6)
+
+Three rules, lint-enforced and reviewed in every PR.
+
+## Rule 1 — Semantic components exist before pages
+
+Pages compose semantic components from `packages/ui/src/semantic/*`. They never reach for primitives directly. Examples: `<ClientCard>`, `<PhasePill>`, `<DataTable>`, `<FactFindFieldGroup>`, `<WizardStepHeader>`, `<EmptyState>`, `<RoleBadge>`, `<PortalKanban>`.
+
+## Rule 2 — Never style inside pages or features
+
+Files under `apps/web/src/app/routes/**` and `apps/web/src/features/**` MUST NOT contain Tailwind utility classes for visual styling, inline `style={}`, `styled-components`, or CSS Module class lists. Their only styling responsibility is **layout composition** via primitives (`<PageShell>`, `<Stack>`, `<Cluster>`, `<Grid>`, `<Inline>`).
+
+```tsx
+// ❌ BAD — styling in a route/feature file
+<div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+  <h1 className="text-2xl font-semibold text-slate-900">Clients</h1>
+</div>
+
+// ✅ GOOD — pure composition, semantic component owns the visuals
+<PageShell title="Clients">
+  <PortalKanban>...</PortalKanban>
+</PageShell>
+```
+
+## Rule 3 — Tokens are the only source of visual values
+
+No raw hex colours, no raw `px`/`rem` values outside `packages/ui/src/tokens/`. All visual values resolve through the token API (`tokens.color.brandPrimary`, `tokens.space.cardPadding`).
+
+```tsx
+// ❌ BAD
+<div style={{ backgroundColor: '#3B82F6', padding: '16px' }} />
+
+// ✅ GOOD — semantic component consumes tokens internally
+<Card>...</Card>
+```
+
+## Layering (lower layers never import from higher)
+
+```
+Layer 0  Tokens          packages/ui/src/tokens/*
+Layer 1  Primitives      Box, Stack, Cluster, Grid, Inline (layout only)
+Layer 2  Atoms           Button, Input, Checkbox, Tag, Pill, Avatar, Icon
+Layer 3  Molecules       FormField, Tabs, Combobox, DatePicker, MoneyField
+Layer 4  Semantic        AppShell, Card, DataTable, PhasePill, ClientCard, …
+Layer 5  Features        apps/web/src/features/**     (no styling)
+Layer 6  Routes          apps/web/src/app/routes/**   (composition + data)
+```
+
+## Wrap third-party UI; never import directly from features
+
+- `lucide-react` — never imported in feature/route code. Use `<Icon name="..." />` from Layer 2.
+- `shadcn/ui` — always wrapped by a semantic component before pages use it.
+- Brand colours come from the resolved tenant brand bundle via `<BrandThemeProvider>` (CSS variables on `:root`). Never hard-code a tenant colour.
+
+## Storybook is the source of visual truth
+
+Every Layer 1–4 component has stories with controls and a Chromatic baseline. PR-time visual regression must be approved before merge. Stories run with a "Theme switcher" that flips between three example tenant brand bundles.

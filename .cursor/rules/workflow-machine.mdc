@@ -1,0 +1,37 @@
+---
+description: Client workflow is an XState v5 machine — never compare status as strings
+globs: apps/api/src/**/*.ts,apps/web/src/**/*.{ts,tsx},packages/workflow/**/*.ts
+alwaysApply: false
+---
+
+# Workflow state machine
+
+The client lifecycle is the XState v5 machine in `packages/workflow/src/clientWorkflow.ts`. Both the frontend and backend import this package — frontend for chips/CTAs/optimistic checks, backend for authoritative validation. See REBUILD_PLAN.md §5.
+
+## Required patterns
+
+```ts
+// ❌ BAD — stringly-typed comparison (eslint will fail this)
+if (client.workflow_state === 'draftingSOA') { ... }
+if (['arDue', 'arWizardActive'].includes(client.workflow_state)) { ... }
+
+// ✅ GOOD — use the helpers from packages/workflow
+import { isInPhase, canTransition, isInState } from '@advicelink/workflow';
+
+if (isInPhase('drafting', client)) { ... }
+if (canTransition('lockFactFind', client, user)) { ... }
+```
+
+## Transitions
+
+- Every transition is a named operation defined in the machine (e.g. `handOffToAdvice`, `lockFactFind`, `sendToParaplanner`, `claimByParaplanner`, `presentSOA`, `startARWizard`, `markLost`).
+- Every successful transition writes a `workflow_events` row with `from`, `to`, `transition_name`, `actor_id`, `reason`, `created_at`. Some transitions require a non-empty `reason` (e.g. `markLost`); declare the requirement in the machine guard, not in feature code.
+- New transitions must ship with `@xstate/test` model-based coverage in `packages/workflow/test/`.
+
+## Auto-transitions live in workers, not in services
+
+`auto-ar-due` and `auto-paraplanner-release` (§5.5) run on the BullMQ `cron` queue. Do not add ad-hoc setInterval/setTimeout transitions in the API. Do not write a second cron path elsewhere.
+
+## File-note auto-generation
+
+Significant transitions emit auto file notes via `createAutoFileNote` (sets `is_auto = true`, `source_event = <eventName>`). Triggers and templates are listed in §19.11 — add new triggers to the registry, do not inline note text in transition code.

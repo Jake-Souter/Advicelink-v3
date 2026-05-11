@@ -1,0 +1,62 @@
+---
+description: Document generation is DOCX-only — manifest + version + golden file
+globs: apps/workers/**/*.ts,packages/document-renderer/**/*.ts,packages/document-templates/**/*.ts,apps/api/src/services/documents/**/*.ts
+alwaysApply: false
+---
+
+# Documents — DOCX only (§8)
+
+The application produces only `.docx` files. There is no PDF pipeline anywhere in v3. Customers convert in Word if they need PDF.
+
+## Banned dependencies — do not add to any package.json
+
+- `puppeteer`, `puppeteer-core`, `playwright` (for rendering), any headless Chromium
+- `html-to-docx`
+- `pandoc`, `pandoc-bin`, `node-pandoc`
+- `libreoffice`, `unoconv`
+- Any other html→docx or html→pdf converter
+
+## Allowed toolchain
+
+- `docxtemplater` — primary engine; templates are real `.docx` files with `{placeholder}` / `{#loop}{/loop}` / `{:image}` syntax
+- `docx` (npm package) — programmatic fragments for dynamic-row tables; merged via `module-docxtemplater-docx-merger`
+- `chartjs-node-canvas` — chart PNGs at 2x DPI inserted as inline images
+- `docx-merger` — appendices
+
+## Every template needs a manifest and a version
+
+Templates live at `tenants/{tenant_id}/templates/{type}/{version}.docx` with a sibling `manifest.json` declaring every placeholder, its source path, and `required`. No placeholder may exist in a template without an entry in the manifest. The Document Maps admin (§6.25) consumes these manifests.
+
+```json
+{
+  "type": "soa",
+  "version": "2026-05-01",
+  "label": "Statement of Advice",
+  "placeholders": [
+    { "key": "client.firstName", "required": true, "source": "personal.firstName" },
+    { "key": "soa.feeTable",     "required": true, "source": "computed:fee-disclosure-table" }
+  ]
+}
+```
+
+## Render pipeline (§8.5) — do not bypass
+
+`POST /trpc/documents.render` → create `documents_runs` row (`status='queued'`) → enqueue on BullMQ `documents` queue → worker snapshots inputs into `run.input_snapshot` → validates against manifest → renders → writes to S3 → updates run to `status='complete'`. Frontend polls or subscribes for completion.
+
+Do not render documents synchronously inside a tRPC procedure. Do not skip the `documents_runs` row.
+
+## Branding is applied at render time, not in templates
+
+Templates use neutral placeholders (`{tenant.logoImage}`, `{tenant.licensee.name}`, `{theme.primaryColorHex}`). The worker resolves the brand bundle (tenant default → team override) and supplies it as render context.
+
+## Golden tests are mandatory for every active template
+
+Fixtures live in `apps/api/test/fixtures/document-snapshots/`; goldens in `packages/document-goldens/`. The nightly `documentGoldenTests` cron renders, canonicalises XML (strips timestamps, revisions), diffs, and files an incident on mismatch.
+
+## Reproducibility
+
+`documents_runs.template_version`, `assumptionsVersionId`, and `legislatedRatesVersion` MUST be recorded on every run so historic documents can be regenerated. "Regenerate with current template" creates a fresh run while preserving the original.
+
+## DocuSign tabs — anchored only
+
+Tabs use the canonical double-curly anchors from §19.13 (`{{clientSignature}}`, `{{clientDate}}`, `{{partnerSignature}}`, `{{adviserSignature}}`, etc.) in white-on-white 1pt text inside the DOCX. Absolute positioning is disallowed.

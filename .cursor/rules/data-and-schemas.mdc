@@ -1,0 +1,52 @@
+---
+description: Data access, Zod schemas, and audit logging conventions
+globs: apps/api/src/**/*.ts,apps/workers/src/**/*.ts,packages/db/**/*.ts,packages/schemas/**/*.ts
+alwaysApply: false
+---
+
+# Data access & schemas
+
+## Repository pattern — no raw SQL in feature code
+
+```ts
+// ❌ BAD — raw SQL inside a feature
+const rows = await ctx.db.execute(sql`SELECT * FROM clients WHERE tenant_id = ${tenantId}`);
+
+// ✅ GOOD — go through the feature's repository module using Drizzle
+// services/clients/repository.ts
+export const clientRepository = {
+  list: (db: Db, filter: ClientFilter) => db.select().from(clients).where(...),
+  get:  (db: Db, id: string)         => db.select().from(clients).where(eq(clients.id, id)),
+};
+```
+
+Migrations live in `packages/db/migrations/` and are managed by Drizzle.
+
+## Zod schemas are the contract
+
+Every entity, every DTO, every wizard section input/output, every prompt input/output has a Zod schema in `packages/schemas/`. tRPC procedures consume those schemas; the frontend imports inferred types via the tRPC client.
+
+Frontend forms validate against the same Zod schema; never duplicate the shape.
+
+## Required fields shape mirrors the Fact Find UI
+
+The `clients.superannuation.currentFunds` shape is exactly the five fields in §7.5.5 (`fundName`, `memberNumber`, `investmentOption`, `currentBalance`, `notes`). Do not reintroduce legacy fields (USI, ABN, fee breakdowns, defensive percent, EBA details, tax components) on the client record. Richer fund metadata belongs to recommended portfolios (§10.6).
+
+## Audit log is append-only — emit on every write
+
+- `audit_log` is append-only; deletes are blocked by a Postgres `BEFORE DELETE` trigger.
+- `admin_audit_log` is the same for admin actions.
+- Every mutation in a service writes a row capturing actor, type, and a JSONB payload diff.
+- `payload` MUST NOT contain decrypted PII (TFNs etc.). Use `mask:` references instead.
+
+## JSONB fields
+
+JSONB is allowed for fields whose shape the UI controls (e.g. `soa_wizard_data` keyed per section). Every field that drives a business rule, workflow transition, or document placeholder is a typed column validated by Zod. When in doubt, prefer a typed column.
+
+## TFN and other sensitive fields
+
+TFN, partner TFN, dependants' TFNs are encrypted at rest via `pgcrypto` (`pgp_sym_encrypt`) with a per-tenant key from Doppler (`TENANT_ENC_KEY__<slug>`), loaded into a session GUC `app.tenant_enc_key` by the same middleware that sets `app.current_tenant_id`. Encrypted columns are stored as `bytea`. UI shows masked form (`***-***-NNN`).
+
+## Idempotency for side-effecting mutations
+
+Document renders, e-sign envelope creation, calendar event creation, and AI calls accept an `Idempotency-Key` header (24h TTL). Use the helper; do not invent a parallel scheme.

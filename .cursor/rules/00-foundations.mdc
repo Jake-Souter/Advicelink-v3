@@ -1,0 +1,46 @@
+---
+description: Advicelink v3 foundations — canonical names, source of truth, hard bans
+alwaysApply: true
+---
+
+# Advicelink v3 — Foundations
+
+The single source of truth for every architectural decision is `REBUILD_PLAN.md` at the repo root. When in doubt, cite a section number and follow it. Do not invent alternative patterns.
+
+## Canonical names (use everywhere)
+
+The same name must appear across tab key, UI label, route slug, frontend folder, and backend module. Lint enforces.
+
+| Concept | Tab key | Route | Frontend | Backend |
+|---|---|---|---|---|
+| SOA Wizard | `soaWizard` | `/clients/$id/soa-wizard` | `features/soa-wizard/` | `services/soa-wizard/` |
+| ROA / EO Wizard | `roaEoWizard` | `/clients/$id/roa-eo-wizard` | `features/roa-eo-wizard/` | `services/roa-eo-wizard/` |
+| AR Wizard | `arWizard` | `/clients/$id/ar-wizard` | `features/ar-wizard/` | `services/ar-wizard/` |
+| GA Portal | `clients` | `/portal/clients` | `features/portals/lead-gen/` | `services/clients/` |
+
+Never use legacy names (`Advice`, `Amendments`, `advice/`, `amendments/`). Component file names match canonical PascalCase: `SoaWizard.tsx`, `RoaEoWizard.tsx`.
+
+## Hard bans (do not introduce, do not reintroduce)
+
+- **No PDF generation anywhere.** No Puppeteer, no headless Chromium, no `html-to-docx`, no Pandoc, no `unoconv`, no LibreOffice. Documents are DOCX-only.
+- **No Excel Power Query data tap.** No REST endpoint that exposes raw client tables.
+- **No hard-coded super-admin email.** Role comes from `users.role`.
+- **No string-typed workflow status comparisons.** Use `packages/workflow` helpers.
+- **No prompts inlined in feature code.** Use the AI prompt registry.
+- **No raw SQL in feature code.** Use Drizzle through `services/<feature>/repository.ts`.
+- **No env-var reads outside `apps/*/src/config/env.ts`.**
+- **No cross-feature imports** between `apps/web/src/features/*`. Cross-cutting code lives in `packages/ui`.
+- **No secrets in `.env` files in the repo.** Doppler manages secrets; local dev uses `doppler run -- pnpm dev`.
+
+## File size caps (lint-enforced)
+
+- `apps/api/src/**` — max 600 lines per file
+- `apps/web/src/**` — max 400 lines per file
+
+## Stack (do not substitute without an architectural decision)
+
+Fastify + tRPC end-to-end (no REST contract for external consumers); React 19 + Vite + TanStack Router + TanStack Query; Drizzle ORM on Postgres with RLS; BullMQ on Redis for workers; Firebase Auth for identity; AWS S3 (`ap-southeast-2`) for object storage; Railway for compute; Vercel for the web app; Cloudflare in front; Doppler for secrets.
+
+## Definition of done (every feature)
+
+Zod schema → tRPC procedure with role allow-list + auth-failure test → canonical-named feature folder → XState coverage if transitions added → manifest + versioned template + golden file if doc-producing → audit log emitted on writes → PostHog event in `eventTaxonomy.ts` → Storybook + Chromatic baseline → Playwright happy path → docs page. See §17.

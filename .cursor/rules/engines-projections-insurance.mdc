@@ -1,0 +1,51 @@
+---
+description: Projection and insurance engines — one implementation, sandboxed, versioned
+globs: packages/projections-engine/**/*.ts,packages/insurance-engine/**/*.ts,apps/api/src/services/projections/**/*.ts,apps/api/src/services/insurance/**/*.ts,apps/api/src/services/soa-wizard/**/*.ts,apps/api/src/services/roa-eo-wizard/**/*.ts,apps/api/src/services/ar-wizard/**/*.ts
+alwaysApply: false
+---
+
+# Projection & insurance engines (§19.5, §19.6)
+
+## Parity rule — one engine, many callers
+
+The projection engine's code path drives:
+- The Projections page (`/projections`)
+- The SOA Wizard `projections` section
+- The ROA / EO Wizard `updatedProjections` section
+- The AR Wizard `reviewSuper` / `reviewInvestments` snapshots
+- The DOCX `projection-report` and SOA/ROA/AR projection placeholders (`computed:` and `chart:`)
+
+There is no second implementation. Do not write a "quick" projection in a feature module. The document renderer calls the same engine.
+
+The same parity rule applies to the insurance needs-analysis engine.
+
+## Declarative JSON-driven, sandboxed
+
+Insurance and projection settings are stored as JSON documents (`insurance-settings/default.json`, projection assumptions). `calculation` expressions are restricted JavaScript evaluated in `isolated-vm` with:
+
+- 50 ms time budget per expression
+- 32 MB memory budget per evaluation
+- Allow-listed global: `{ Math, currentRow, prevRow, inputs, assumptions, rates }`
+- No I/O, no `require`, no top-level side effects
+
+Do not evaluate user-supplied expressions with `eval`, `new Function`, `vm` (Node built-in), or any non-isolated context.
+
+## Versioning is mandatory — old runs must remain reproducible
+
+- Legislated rates are pinned per FY in `packages/projections-engine/src/legislatedRates/<fy>.ts` (e.g. `2025-26.ts`). Bump by adding a new file and updating tenant settings; never edit a past year's file.
+- Insurance settings, projection settings, AI prompts, and required-fields configs are versioned. SOA Wizard / ROA / EO Wizard / AR Wizard runs record `assumptionsVersionId`, `legislatedRatesVersion`, and `needsAnalysisVersionId` against the run.
+- "Re-run with current settings" creates a new run; never mutates a finalised one.
+
+## Risk-profile scoring map (§19.7)
+
+The 5-question risk-profile maps to a score per the table in §19.7 with bands:
+
+```
+5–8   Defensive
+9–12  Conservative
+13–17 Balanced
+18–21 Growth
+22–25 Aggressive
+```
+
+Defined in `packages/insurance-engine/src/riskProfile/scoringMap-2025-08-01.ts`. Tenant overrides go through admin (§10), not through code.

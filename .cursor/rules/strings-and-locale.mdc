@@ -1,0 +1,43 @@
+---
+description: User-facing strings, locale defaults (en-AU), and the no-i18n-framework-yet pattern
+globs: apps/web/src/**/*.{ts,tsx},packages/strings/**/*.ts,apps/api/src/**/*.ts
+alwaysApply: false
+---
+
+# Strings & locale (§19.17, §19.18)
+
+Australia-only at v1. No i18n framework, but the codebase is set up so adding one later is a mechanical rename rather than a refactor.
+
+## Frontend strings
+
+User-facing strings live in `apps/web/src/strings/<feature>.ts` as plain `const` exports — never inline JSX text or `aria-label`/`title`/`alt` literals. The lint rule scans for string literals in those positions.
+
+```tsx
+// ❌ BAD — inline literal
+<button aria-label="Open client">Open</button>
+
+// ✅ GOOD — sourced from a strings module, or wrapped in Tx()
+import { strings } from '~/strings/clients';
+<button aria-label={strings.openClient.aria}>{strings.openClient.label}</button>
+
+// ✅ GOOD — when the literal is unavoidable inline, mark it with the no-op Tx
+<span>{Tx('Loading clients…')}</span>
+```
+
+`Tx(...)` is a no-op marker today; replacing `Tx` with `t` (real translator) when a future locale is added is a mechanical rename.
+
+## Backend strings
+
+Toasts, audit-log lines, and file-note auto templates live in `packages/strings/<domain>.ts` keyed by an enum, accessed via `strings(key, params)`. The function already accepts a `locale` argument but always returns `en-AU` at v1.
+
+## Locale defaults
+
+- **Locale**: `en-AU`
+- **Currency**: `AUD` via `Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' })`. Negative amounts in parentheses inside tables; minus sign in body text.
+- **Dates**: input `dd/MM/yyyy`; display `d MMM yyyy` (body) and `dd MMM yyyy` (tables); ISO `YYYY-MM-DD` in API/DB
+- **Time**: 24-hour `HH:mm` in workflows; 12-hour with AM/PM in user-facing audit log lines and calendar events
+- **Time zone**: tenant-level (`tenant.timezone`, default `Australia/Sydney`); user override in profile
+- **First day of week**: Monday
+- **Phone**: stored E.164 (`+61…`); displayed Australian national format `04XX XXX XXX`
+
+Use the formatters in `packages/ui/src/format/` (`formatMoney`, `formatDateBody`, `formatDateTable`, `formatPhone`). Do not call `Intl.*` directly in feature code.

@@ -1,0 +1,15 @@
+{
+  "name": "@advicelink/public-site",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'public-site placeholder — implement when marketing content is needed' && exit 0",
+    "build": "echo 'public-site placeholder' && exit 0",
+    "lint": "echo 'public-site placeholder' && exit 0",
+    "typecheck": "echo 'public-site placeholder' && exit 0",
+    "test": "echo 'public-site placeholder' && exit 0",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo .next"
+  }
+}

@@ -1,0 +1,10 @@
+setup:
+  - project: advicelink-api
+    config: dev
+    path: ./apps/api
+  - project: advicelink-workers
+    config: dev
+    path: ./apps/workers
+  - project: advicelink-web
+    config: dev
+    path: ./apps/web

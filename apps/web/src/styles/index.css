@@ -1,0 +1,26 @@
+@import '@advicelink/ui/styles.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: theme('colors.surface.base');
+  color: theme('colors.text.primary');
+  font-family: theme('fontFamily.sans');
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Splash placeholder — replaced by real <AppShell> semantic component in WP-3. */
+[data-page='splash'] {
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: theme('colors.text.secondary');
+}
